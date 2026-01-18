@@ -34,8 +34,9 @@ public class HallowedSepulchreInfoBox extends OverlayPanel
 			return null;
 		}
 		
-		// Only show in Hallowed Sepulchre (lobby or floors) - use real-time region check
-		if (!plugin.isCurrentlyInSepulchreRegion())
+		// Only show in Hallowed Sepulchre (lobby or floors)
+		// Use real-time region check OR active run/inSepulchre flag for transitions
+		if (!plugin.isCurrentlyInSepulchreRegion() && !plugin.isInSepulchre())
 		{
 			return null;
 		}

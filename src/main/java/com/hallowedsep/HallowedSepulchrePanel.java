@@ -159,17 +159,17 @@ public class HallowedSepulchrePanel extends PluginPanel
 		else
 		{
 			addStatRow(content, "Runs", String.valueOf(today.getRuns()), TEXT_SECONDARY, TEXT_PRIMARY);
-			addStatRow(content, "XP Gained", formatNumber(today.getTotalXp()), TEXT_SECONDARY, GREEN_SUCCESS);
-			addStatRow(content, "Time in Sep", formatHoursMinutes(today.getHoursPlayed()), TEXT_SECONDARY, BLUE_ACCENT);
+			addStatRow(content, "XP", formatNumber(today.getTotalXp()), TEXT_SECONDARY, GREEN_SUCCESS);
+			addStatRow(content, "Time", formatHoursMinutes(today.getHoursPlayed()), TEXT_SECONDARY, BLUE_ACCENT);
 			
 			// Live XP/hr including current run
 			double xpHr = plugin.getXpPerHour();
-			addStatRow(content, "XP/Hour (Live)", formatNumber((int) xpHr), TEXT_SECONDARY, getXpHrColor(xpHr));
+			addStatRow(content, "XP/hr", formatNumber((int) xpHr), TEXT_SECONDARY, getXpHrColor(xpHr));
 			
 			if (today.getRuns() > 0)
 			{
 				int avgXp = today.getTotalXp() / today.getRuns();
-				addStatRow(content, "Avg XP/Run", formatNumber(avgXp), TEXT_SECONDARY, TEXT_PRIMARY);
+				addStatRow(content, "Avg/Run", formatNumber(avgXp), TEXT_SECONDARY, TEXT_PRIMARY);
 			}
 		}
 		
@@ -187,12 +187,12 @@ public class HallowedSepulchrePanel extends PluginPanel
 		}
 		else
 		{
-			addStatRow(content, "Total Runs", String.valueOf(stats.getAllTimeRuns()), TEXT_SECONDARY, TEXT_PRIMARY);
-			addStatRow(content, "Total XP", formatNumber(stats.getAllTimeXp()), TEXT_SECONDARY, GREEN_SUCCESS);
-			addStatRow(content, "Time in Sep", formatHoursMinutes(stats.getAllTimeHours()), TEXT_SECONDARY, BLUE_ACCENT);
-			addStatRow(content, "Days Played", String.valueOf(stats.getDaysTracked()), TEXT_SECONDARY, PURPLE_ACCENT);
-			addStatRow(content, "Avg Runs/Day", String.format("%.1f", stats.getAverageRunsPerDay()), TEXT_SECONDARY, TEXT_PRIMARY);
-			addStatRow(content, "Avg XP/Hour", formatNumber((int) stats.getAllTimeXpPerHour()), TEXT_SECONDARY, getXpHrColor(stats.getAllTimeXpPerHour()));
+			addStatRow(content, "Runs", String.valueOf(stats.getAllTimeRuns()), TEXT_SECONDARY, TEXT_PRIMARY);
+			addStatRow(content, "XP", formatNumber(stats.getAllTimeXp()), TEXT_SECONDARY, GREEN_SUCCESS);
+			addStatRow(content, "Time", formatHoursMinutes(stats.getAllTimeHours()), TEXT_SECONDARY, BLUE_ACCENT);
+			addStatRow(content, "Days", String.valueOf(stats.getDaysTracked()), TEXT_SECONDARY, PURPLE_ACCENT);
+			addStatRow(content, "Runs/Day", String.format("%.1f", stats.getAverageRunsPerDay()), TEXT_SECONDARY, TEXT_PRIMARY);
+			addStatRow(content, "XP/hr", formatNumber((int) stats.getAllTimeXpPerHour()), TEXT_SECONDARY, getXpHrColor(stats.getAllTimeXpPerHour()));
 		}
 		
 		return card;
@@ -209,7 +209,7 @@ public class HallowedSepulchrePanel extends PluginPanel
 		
 		// Level with colored indicator
 		Color levelColor = level >= 99 ? GOLD_ACCENT : (level >= 92 ? GREEN_SUCCESS : TEXT_PRIMARY);
-		addStatRow(content, "Current Level", String.valueOf(level), TEXT_SECONDARY, levelColor);
+		addStatRow(content, "Level", String.valueOf(level), TEXT_SECONDARY, levelColor);
 		
 		// Progress
 		if (level < 99)
@@ -228,7 +228,7 @@ public class HallowedSepulchrePanel extends PluginPanel
 				if (avgRunsPerDay > 0)
 				{
 					int daysTo92 = (int) Math.ceil(runsTo92 / avgRunsPerDay);
-					addStatRow(content, "Est. Days to 92", String.valueOf(daysTo92), TEXT_SECONDARY, PURPLE_ACCENT);
+					addStatRow(content, "Days to 92", String.valueOf(daysTo92), TEXT_SECONDARY, PURPLE_ACCENT);
 				}
 			}
 			
@@ -239,7 +239,7 @@ public class HallowedSepulchrePanel extends PluginPanel
 			if (avgRunsPerDay > 0)
 			{
 				int daysTo99 = (int) Math.ceil(runsTo99 / avgRunsPerDay);
-				addStatRow(content, "Est. Days to 99", String.valueOf(daysTo99), TEXT_SECONDARY, GOLD_ACCENT);
+				addStatRow(content, "Days to 99", String.valueOf(daysTo99), TEXT_SECONDARY, GOLD_ACCENT);
 			}
 		}
 		else

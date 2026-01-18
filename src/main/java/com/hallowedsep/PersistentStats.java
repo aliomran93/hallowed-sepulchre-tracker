@@ -1,21 +1,13 @@
 package com.hallowedsep;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import lombok.Data;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 
 @Data
 public class PersistentStats
 {
-	private static final Gson GSON = new GsonBuilder()
-		.registerTypeAdapter(Instant.class, new InstantTypeAdapter())
-		.setPrettyPrinting()
-		.create();
-	
 	// All-time stats
 	private int allTimeRuns;
 	private int allTimeXp;
@@ -196,49 +188,30 @@ public class PersistentStats
 		if (dailyHistory.isEmpty()) return 0;
 		return getAllTimeHours() / dailyHistory.size();
 	}
-	
-	public String toJson()
+
+	/**
+	 * Initialize maps after deserialization
+	 */
+	public void initializeAfterLoad()
 	{
-		return GSON.toJson(this);
-	}
-	
-	public static PersistentStats fromJson(String json)
-	{
-		if (json == null || json.isEmpty())
+		if (allTimeFloorCompletions == null)
 		{
-			return new PersistentStats();
+			allTimeFloorCompletions = new HashMap<>();
+		}
+		if (bestFloorTimes == null)
+		{
+			bestFloorTimes = new HashMap<>();
+		}
+		if (dailyHistory == null)
+		{
+			dailyHistory = new LinkedHashMap<>();
 		}
 		
-		try
+		// Ensure all floors have entries
+		for (int i = 1; i <= 5; i++)
 		{
-			PersistentStats stats = GSON.fromJson(json, PersistentStats.class);
-			
-			// Initialize any null maps
-			if (stats.allTimeFloorCompletions == null)
-			{
-				stats.allTimeFloorCompletions = new HashMap<>();
-			}
-			if (stats.bestFloorTimes == null)
-			{
-				stats.bestFloorTimes = new HashMap<>();
-			}
-			if (stats.dailyHistory == null)
-			{
-				stats.dailyHistory = new LinkedHashMap<>();
-			}
-			
-			// Ensure all floors have entries
-			for (int i = 1; i <= 5; i++)
-			{
-				stats.allTimeFloorCompletions.putIfAbsent(i, 0);
-				stats.bestFloorTimes.putIfAbsent(i, Long.MAX_VALUE);
-			}
-			
-			return stats;
-		}
-		catch (Exception e)
-		{
-			return new PersistentStats();
+			allTimeFloorCompletions.putIfAbsent(i, 0);
+			bestFloorTimes.putIfAbsent(i, Long.MAX_VALUE);
 		}
 	}
 }

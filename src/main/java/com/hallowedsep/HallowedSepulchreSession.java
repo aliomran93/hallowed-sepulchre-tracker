@@ -1,7 +1,5 @@
 package com.hallowedsep;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import lombok.Data;
 
 import java.time.Duration;
@@ -14,11 +12,6 @@ import java.util.Map;
 @Data
 public class HallowedSepulchreSession
 {
-	private static final Gson GSON = new GsonBuilder()
-		.registerTypeAdapter(Instant.class, new InstantTypeAdapter())
-		.registerTypeAdapter(Duration.class, new DurationTypeAdapter())
-		.create();
-	
 	private Instant sessionStartTime;
 	private int totalRuns;
 	private int totalXp;
@@ -224,42 +217,35 @@ public class HallowedSepulchreSession
 		return sum / limit;
 	}
 	
-	public String toJson()
+	/**
+	 * Initialize maps after deserialization
+	 */
+	public void initializeAfterLoad()
 	{
-		return GSON.toJson(this);
-	}
-	
-	public static HallowedSepulchreSession fromJson(String json)
-	{
-		HallowedSepulchreSession session = GSON.fromJson(json, HallowedSepulchreSession.class);
-		
-		// Initialize any null maps
-		if (session.floorCompletions == null)
+		if (floorCompletions == null)
 		{
-			session.floorCompletions = new HashMap<>();
+			floorCompletions = new HashMap<>();
 		}
-		if (session.chestsLootedPerFloor == null)
+		if (chestsLootedPerFloor == null)
 		{
-			session.chestsLootedPerFloor = new HashMap<>();
+			chestsLootedPerFloor = new HashMap<>();
 		}
-		if (session.bestFloorTimes == null)
+		if (bestFloorTimes == null)
 		{
-			session.bestFloorTimes = new HashMap<>();
+			bestFloorTimes = new HashMap<>();
 		}
-		if (session.recentRuns == null)
+		if (recentRuns == null)
 		{
-			session.recentRuns = new ArrayList<>();
+			recentRuns = new ArrayList<>();
 		}
 		
 		// Ensure all floors have entries
 		for (int i = 1; i <= 5; i++)
 		{
-			session.floorCompletions.putIfAbsent(i, 0);
-			session.chestsLootedPerFloor.putIfAbsent(i, 0);
-			session.bestFloorTimes.putIfAbsent(i, Long.MAX_VALUE);
+			floorCompletions.putIfAbsent(i, 0);
+			chestsLootedPerFloor.putIfAbsent(i, 0);
+			bestFloorTimes.putIfAbsent(i, Long.MAX_VALUE);
 		}
-		
-		return session;
 	}
 	
 	@Data

@@ -1,5 +1,6 @@
 package com.hallowedsep;
 
+import com.google.gson.Gson;
 import com.google.inject.Provides;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -88,6 +89,11 @@ public class HallowedSepulchrePlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 	
+	@Inject
+	private Gson gson;
+	
+	private Gson configuredGson;
+	
 	@Getter
 	private HallowedSepulchreSession session;
 	
@@ -119,6 +125,12 @@ public class HallowedSepulchrePlugin extends Plugin
 	protected void startUp() throws Exception
 	{
 		log.info("Hallowed Sepulchre Tracker started!");
+		
+		// Configure Gson with custom type adapters using the injected Gson
+		configuredGson = gson.newBuilder()
+			.registerTypeAdapter(Instant.class, new InstantTypeAdapter())
+			.registerTypeAdapter(Duration.class, new DurationTypeAdapter())
+			.create();
 		
 		session = loadSession();
 		persistentStats = loadPersistentStats();
@@ -626,7 +638,12 @@ public class HallowedSepulchrePlugin extends Plugin
 		{
 			try
 			{
-				return HallowedSepulchreSession.fromJson(json);
+				HallowedSepulchreSession loaded = configuredGson.fromJson(json, HallowedSepulchreSession.class);
+				if (loaded != null)
+				{
+					loaded.initializeAfterLoad();
+					return loaded;
+				}
 			}
 			catch (Exception e)
 			{
@@ -640,7 +657,7 @@ public class HallowedSepulchrePlugin extends Plugin
 	{
 		if (session != null)
 		{
-			String json = session.toJson();
+			String json = configuredGson.toJson(session);
 			configManager.setConfiguration("hallowedsep", "session", json);
 		}
 	}
@@ -652,7 +669,12 @@ public class HallowedSepulchrePlugin extends Plugin
 		{
 			try
 			{
-				return PersistentStats.fromJson(json);
+				PersistentStats loaded = configuredGson.fromJson(json, PersistentStats.class);
+				if (loaded != null)
+				{
+					loaded.initializeAfterLoad();
+					return loaded;
+				}
 			}
 			catch (Exception e)
 			{
@@ -666,7 +688,7 @@ public class HallowedSepulchrePlugin extends Plugin
 	{
 		if (persistentStats != null)
 		{
-			String json = persistentStats.toJson();
+			String json = configuredGson.toJson(persistentStats);
 			configManager.setConfiguration("hallowedsep", "persistent", json);
 		}
 	}

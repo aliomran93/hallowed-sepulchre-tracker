@@ -34,8 +34,8 @@ public class HallowedSepulchreInfoBox extends OverlayPanel
 			return null;
 		}
 		
-		// Only show in Hallowed Sepulchre (lobby or floors)
-		if (!plugin.isInSepulchre())
+		// Only show in Hallowed Sepulchre (lobby or floors) - use real-time region check
+		if (!plugin.isCurrentlyInSepulchreRegion())
 		{
 			return null;
 		}
@@ -130,6 +130,19 @@ public class HallowedSepulchreInfoBox extends OverlayPanel
 			.right(HallowedSepulchrePlugin.formatNumber((int) xpHrDisplay))
 			.rightColor(getXpHrColor(xpHrDisplay))
 			.build());
+		
+		// Runs to next level
+		int currentLevel = plugin.getCurrentAgilityLevel();
+		if (currentLevel < 99)
+		{
+			int nextLevel = plugin.getNextLevel();
+			int runsToNext = plugin.getRunsToNextLevel();
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Runs to " + nextLevel + ":")
+				.right(String.valueOf(runsToNext))
+				.rightColor(new Color(255, 200, 100))
+				.build());
+		}
 		
 		return super.render(graphics);
 	}

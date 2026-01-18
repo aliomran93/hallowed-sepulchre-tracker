@@ -704,6 +704,15 @@ public class HallowedSepulchrePlugin extends Plugin
 		return inSepulchre;
 	}
 	
+	/**
+	 * Check if currently in a Sepulchre region (real-time check)
+	 */
+	public boolean isCurrentlyInSepulchreRegion()
+	{
+		int regionId = getCurrentRegionId();
+		return isInSepulchreRegion(regionId);
+	}
+	
 	public SepulchreRun getCurrentRun()
 	{
 		return currentRun;
@@ -744,6 +753,22 @@ public class HallowedSepulchrePlugin extends Plugin
 		int currentXp = getCurrentAgilityXp();
 		int targetXp = Experience.getXpForLevel(targetLevel);
 		return Math.max(0, targetXp - currentXp);
+	}
+	
+	public int getNextLevel()
+	{
+		int currentLevel = getCurrentAgilityLevel();
+		return Math.min(currentLevel + 1, 99);
+	}
+	
+	public int getRunsToNextLevel()
+	{
+		int nextLevel = getNextLevel();
+		if (getCurrentAgilityLevel() >= 99)
+		{
+			return 0;
+		}
+		return getRunsRemaining(nextLevel);
 	}
 	
 	public int getRunsRemaining(int targetLevel)

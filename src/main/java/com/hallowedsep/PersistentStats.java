@@ -61,24 +61,19 @@ public class PersistentStats
 			bestRunTimeMs = timeMs;
 		}
 		
-		// Update floor completions and best times
+		// Update best times only (floor completions come from game chat via setFloorCompletionsFromGame)
 		for (Map.Entry<Integer, SepulchreRun.FloorData> entry : run.getFloorData().entrySet())
 		{
 			int floor = entry.getKey();
 			SepulchreRun.FloorData floorData = entry.getValue();
 			
-			if (floorData.isCompleted())
+			if (floorData.isCompleted() && floorData.getDuration() != null)
 			{
-				allTimeFloorCompletions.merge(floor, 1, Integer::sum);
-				
-				if (floorData.getDuration() != null)
+				long floorTime = floorData.getDuration().toMillis();
+				Long currentBest = bestFloorTimes.get(floor);
+				if (currentBest == null || floorTime < currentBest)
 				{
-					long floorTime = floorData.getDuration().toMillis();
-					Long currentBest = bestFloorTimes.get(floor);
-					if (currentBest == null || floorTime < currentBest)
-					{
-						bestFloorTimes.put(floor, floorTime);
-					}
+					bestFloorTimes.put(floor, floorTime);
 				}
 			}
 		}

@@ -261,41 +261,12 @@ public class HallowedSepulchrePanel extends PluginPanel
 		JPanel card = createCard("Floor Completions", PURPLE_ACCENT);
 		JPanel content = (JPanel) card.getComponent(1);
 		
-		// Create a grid for floors
-		JPanel floorGrid = new JPanel(new GridLayout(1, 5, 8, 0));
-		floorGrid.setBackground(BG_CARD);
-		floorGrid.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
-		
+		// Simple vertical list - no width issues
 		for (int i = 1; i <= 5; i++)
 		{
 			int allTime = stats != null ? stats.getFloorCompletions(i) : 0;
-			
-			JPanel floorPanel = new JPanel();
-			floorPanel.setLayout(new BoxLayout(floorPanel, BoxLayout.Y_AXIS));
-			floorPanel.setBackground(new Color(35, 37, 45));
-			floorPanel.setBorder(BorderFactory.createCompoundBorder(
-				new LineBorder(FLOOR_COLORS[i-1].darker(), 2),
-				new EmptyBorder(8, 4, 8, 4)
-			));
-			
-			JLabel floorLabel = new JLabel("F" + i);
-			floorLabel.setFont(SMALL_FONT);
-			floorLabel.setForeground(FLOOR_COLORS[i-1]);
-			floorLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-			
-			JLabel countLabel = new JLabel(String.valueOf(allTime));
-			countLabel.setFont(VALUE_FONT);
-			countLabel.setForeground(allTime > 0 ? TEXT_PRIMARY : TEXT_MUTED);
-			countLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-			
-			floorPanel.add(floorLabel);
-			floorPanel.add(Box.createVerticalStrut(4));
-			floorPanel.add(countLabel);
-			
-			floorGrid.add(floorPanel);
+			addStatRow(content, "Floor " + i, String.valueOf(allTime), TEXT_SECONDARY, FLOOR_COLORS[i-1]);
 		}
-		
-		content.add(floorGrid);
 		
 		return card;
 	}
@@ -496,7 +467,7 @@ public class HallowedSepulchrePanel extends PluginPanel
 		JPanel content = new JPanel();
 		content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 		content.setBackground(BG_CARD);
-		content.setBorder(new EmptyBorder(12, 14, 12, 14));
+		content.setBorder(new EmptyBorder(8, 8, 8, 8));
 		
 		card.add(header);
 		card.add(content);
@@ -508,19 +479,20 @@ public class HallowedSepulchrePanel extends PluginPanel
 	{
 		JPanel row = new JPanel(new BorderLayout());
 		row.setBackground(BG_CARD);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
-		row.setBorder(new EmptyBorder(2, 0, 2, 0));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+		row.setBorder(new EmptyBorder(1, 0, 1, 0));
 		
-		JLabel labelComp = new JLabel(label);
+		JLabel labelComp = new JLabel(label + ":");
 		labelComp.setFont(LABEL_FONT);
 		labelComp.setForeground(labelColor);
+		labelComp.setPreferredSize(new Dimension(90, 20));
 		
 		JLabel valueComp = new JLabel(value);
 		valueComp.setFont(VALUE_FONT);
 		valueComp.setForeground(valueColor);
 		
 		row.add(labelComp, BorderLayout.WEST);
-		row.add(valueComp, BorderLayout.EAST);
+		row.add(valueComp, BorderLayout.CENTER);
 		
 		panel.add(row);
 	}
@@ -642,6 +614,24 @@ public class HallowedSepulchrePanel extends PluginPanel
 		if (num >= 1000000)
 		{
 			return String.format("%.2fM", num / 1000000.0);
+		}
+		else if (num >= 1000)
+		{
+			return String.format("%.1fK", num / 1000.0);
+		}
+		return String.valueOf(num);
+	}
+	
+	// Even more compact format for tight spaces (floor completions)
+	private String formatCompact(int num)
+	{
+		if (num >= 1000000)
+		{
+			return String.format("%.0fM", num / 1000000.0);
+		}
+		else if (num >= 10000)
+		{
+			return String.format("%.0fK", num / 1000.0);
 		}
 		else if (num >= 1000)
 		{

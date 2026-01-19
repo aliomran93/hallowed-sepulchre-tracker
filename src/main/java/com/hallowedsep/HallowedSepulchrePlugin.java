@@ -196,12 +196,17 @@ public class HallowedSepulchrePlugin extends Plugin
 				}
 			});
 		}
-		else if (event.getGameState() == GameState.LOGIN_SCREEN)
+		else if (event.getGameState() == GameState.LOGIN_SCREEN || event.getGameState() == GameState.HOPPING)
 		{
-			if (inSepulchre && currentRun != null)
+			// Reset state on logout/hop to prevent stale inSepulchre flag
+			if (currentRun != null)
 			{
 				endRun(false);
 			}
+			inSepulchre = false;
+			currentFloor = 0;
+			transitionTickCount = 0;
+			lastRegionId = -1;
 		}
 	}
 	

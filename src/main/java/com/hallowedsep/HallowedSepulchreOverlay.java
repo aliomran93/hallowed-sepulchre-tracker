@@ -30,7 +30,8 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		if (!config.showOverlay() || (!plugin.isCurrentlyInSepulchreRegion() && !plugin.isInSepulchre()))
+		// Only show in Hallowed Sepulchre using strict real-time region check
+		if (!config.showOverlay() || !plugin.isCurrentlyInSepulchreRegion())
 		{
 			return null;
 		}

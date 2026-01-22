@@ -31,32 +31,18 @@ import java.time.Instant;
 public class HallowedSepulchrePlugin extends Plugin
 {
 	// Hallowed Sepulchre Region IDs
-	// Each floor has multiple layout variations with different region IDs
 	private static final int LOBBY_REGION = 9565;
 	
-	// Floor 1 regions
-	private static final int FLOOR_1_REGION_1 = 8797;
-	private static final int FLOOR_1_REGION_2 = 9053;
-	private static final int FLOOR_1_REGION_3 = 9309;
-	
-	// Floor 2 regions
-	private static final int FLOOR_2_REGION_1 = 9054;
-	private static final int FLOOR_2_REGION_2 = 9310;
-	private static final int FLOOR_2_REGION_3 = 10077;  // User-verified
-	
-	// Floor 3 regions
-	private static final int FLOOR_3_REGION_1 = 9311;
-	private static final int FLOOR_3_REGION_2 = 9567;
-	private static final int FLOOR_3_REGION_3 = 9563;  // User-verified
-	
-	// Floor 4 regions
-	private static final int FLOOR_4_REGION_1 = 9823;
-	private static final int FLOOR_4_REGION_2 = 10079;
-	private static final int FLOOR_4_REGION_3 = 10075;  // User-verified
-	
-	// Floor 5 regions
-	private static final int FLOOR_5_REGION_1 = 10335;
-	private static final int FLOOR_5_REGION_2 = 10591;
+	// Floor regions (used to detect if player is still in Sepulchre area)
+	// These are checked via getMapRegions() which returns all loaded regions
+	private static final int[] SEPULCHRE_REGIONS = {
+		9565,  // Lobby
+		9309, 8797, 9052, 9054,  // Floor 1 variations
+		9053, 9310, 10077,       // Floor 2 variations  
+		9311, 9567, 9563,        // Floor 3 variations
+		9823, 10079, 10075,      // Floor 4 variations
+		10335, 10591             // Floor 5 variations
+	};
 	
 	// Object IDs
 	private static final int STAIRS_DOWN = 39526;
@@ -117,10 +103,6 @@ public class HallowedSepulchrePlugin extends Plugin
 	private int lastAgilityXp;
 	private int lastRegionId;
 	
-	// Track transition state - don't immediately end run when in loading regions
-	private int transitionTickCount;
-	private static final int MAX_TRANSITION_TICKS = 30; // Allow up to 30 ticks (~18 seconds) for transitions
-	
 	@Override
 	protected void startUp() throws Exception
 	{
@@ -139,7 +121,6 @@ public class HallowedSepulchrePlugin extends Plugin
 		currentFloor = 0;
 		lastAgilityXp = -1;
 		lastRegionId = -1;
-		transitionTickCount = 0;
 		
 		overlayManager.add(overlay);
 		overlayManager.add(infoBox);
@@ -205,7 +186,6 @@ public class HallowedSepulchrePlugin extends Plugin
 			}
 			inSepulchre = false;
 			currentFloor = 0;
-			transitionTickCount = 0;
 			lastRegionId = -1;
 		}
 	}
@@ -416,133 +396,61 @@ public class HallowedSepulchrePlugin extends Plugin
 	
 	private void handleRegionChange(int regionId)
 	{
-		int newFloor = getFloorFromRegion(regionId);
-		boolean nowInSepulchre = isInSepulchreRegion(regionId);
 		boolean isInLobby = regionId == LOBBY_REGION;
+		boolean stillInSepulchreArea = isInAnySepulchreRegion();
 		
-		// Always log region for debugging
-		log.info("Region: {} | Floor: {} | InSep: {} | Lobby: {} | CurrentRun: {} | CurrentFloor: {}",
-			regionId, newFloor, nowInSepulchre, isInLobby, 
-			currentRun != null ? "ACTIVE" : "NULL", currentFloor);
-		
-		// If we're in a sepulchre region, reset transition counter
-		if (nowInSepulchre)
-		{
-			transitionTickCount = 0;
-		}
-		
-		// Entering Sepulchre area (lobby or floors) - from truly outside
-		if (!inSepulchre && nowInSepulchre)
+		// Track if we're in the lobby for overlay visibility
+		if (isInLobby)
 		{
 			inSepulchre = true;
 			
-			// Only start a run when entering Floor 1, not when entering the lobby
-			if (newFloor == 1)
+			// If we returned to lobby with an active run, end it
+			// (backup for when obelisk chat message is missed)
+			if (currentRun != null && currentFloor > 0)
 			{
-				startRun();
-				currentFloor = 1;
-				floorStartTime = Instant.now();
-				currentRun.startFloor(1);
-				log.debug("Started run - entered Floor 1 directly");
-			}
-			else if (isInLobby)
-			{
-				log.debug("Entered Sepulchre lobby");
-			}
-		}
-		// In transition (not in a known sepulchre region but was recently)
-		else if (inSepulchre && !nowInSepulchre)
-		{
-			transitionTickCount++;
-			
-			// Only truly leave if we've been out for too long
-			if (transitionTickCount >= MAX_TRANSITION_TICKS)
-			{
-				log.debug("Left Hallowed Sepulchre");
-				if (currentRun != null)
-				{
-					endRun(currentFloor > 0);
-				}
-				inSepulchre = false;
-				currentFloor = 0;
-				transitionTickCount = 0;
-			}
-			// Otherwise, we're probably just loading a new floor - stay patient
-		}
-		// Still in sepulchre (was in sepulchre, now in a known sepulchre region)
-		else if (inSepulchre && nowInSepulchre)
-		{
-			// Moving from lobby to Floor 1 - START the run
-			if (currentRun == null && newFloor == 1)
-			{
-				startRun();
-				currentFloor = 1;
-				floorStartTime = Instant.now();
-				currentRun.startFloor(1);
-				log.debug("Started run - entered Floor 1 from lobby");
-			}
-			// Floor change within Sepulchre (between floors, not lobby)
-			else if (currentRun != null && newFloor != currentFloor && newFloor > 0)
-			{
-				log.debug("Entered floor {}", newFloor);
-				if (currentFloor > 0)
-				{
-					completeFloor(currentFloor);
-				}
-				
-				currentFloor = newFloor;
-				floorStartTime = Instant.now();
-				currentRun.startFloor(newFloor);
-			}
-			// Returned to lobby from a floor (run ended via obelisk or death)
-			else if (isInLobby && currentRun != null && currentFloor > 0)
-			{
-				log.debug("Returned to lobby - run completed");
+				log.info("Returned to lobby - ending run");
 				endRun(true);
 				currentFloor = 0;
 			}
 		}
-	}
-	
-	private boolean isInSepulchreRegion(int regionId)
-	{
-		return regionId == LOBBY_REGION ||
-			regionId == FLOOR_1_REGION_1 || regionId == FLOOR_1_REGION_2 || regionId == FLOOR_1_REGION_3 ||
-			regionId == FLOOR_2_REGION_1 || regionId == FLOOR_2_REGION_2 || regionId == FLOOR_2_REGION_3 ||
-			regionId == FLOOR_3_REGION_1 || regionId == FLOOR_3_REGION_2 || regionId == FLOOR_3_REGION_3 ||
-			regionId == FLOOR_4_REGION_1 || regionId == FLOOR_4_REGION_2 || regionId == FLOOR_4_REGION_3 ||
-			regionId == FLOOR_5_REGION_1 || regionId == FLOOR_5_REGION_2;
-	}
-	
-	private int getFloorFromRegion(int regionId)
-	{
-		switch (regionId)
+		// Check if player teleported out of Sepulchre entirely
+		else if (currentRun != null && !stillInSepulchreArea)
 		{
-			case FLOOR_1_REGION_1:
-			case FLOOR_1_REGION_2:
-			case FLOOR_1_REGION_3:
-				return 1;
-			case FLOOR_2_REGION_1:
-			case FLOOR_2_REGION_2:
-			case FLOOR_2_REGION_3:
-				return 2;
-			case FLOOR_3_REGION_1:
-			case FLOOR_3_REGION_2:
-			case FLOOR_3_REGION_3:
-				return 3;
-			case FLOOR_4_REGION_1:
-			case FLOOR_4_REGION_2:
-			case FLOOR_4_REGION_3:
-				return 4;
-			case FLOOR_5_REGION_1:
-			case FLOOR_5_REGION_2:
-				return 5;
-			case LOBBY_REGION:
-				return 0;
-			default:
-				return -1;
+			log.info("Teleported out of Sepulchre - ending run");
+			endRun(false);
+			inSepulchre = false;
+			currentFloor = 0;
 		}
+		
+		// All run start/floor change logic is handled via chat messages
+		// See onChatMessage() for reliable detection
 	}
+	
+	/**
+	 * Check if any of the currently loaded map regions are Sepulchre regions.
+	 * Uses getMapRegions() which returns all loaded regions (not just player's exact region).
+	 */
+	private boolean isInAnySepulchreRegion()
+	{
+		int[] loadedRegions = client.getMapRegions();
+		if (loadedRegions == null)
+		{
+			return false;
+		}
+		
+		for (int loaded : loadedRegions)
+		{
+			for (int sepRegion : SEPULCHRE_REGIONS)
+			{
+				if (loaded == sepRegion)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
 	
 	private int getCurrentRegionId()
 	{
@@ -552,6 +460,7 @@ public class HallowedSepulchrePlugin extends Plugin
 			return -1;
 		}
 		
+		// Use simple world location - lobby region works with this
 		return player.getWorldLocation().getRegionID();
 	}
 	
@@ -732,12 +641,12 @@ public class HallowedSepulchrePlugin extends Plugin
 	}
 	
 	/**
-	 * Check if currently in a Sepulchre region (real-time check)
+	 * Check if currently in the Sepulchre (for overlay visibility)
 	 */
 	public boolean isCurrentlyInSepulchreRegion()
 	{
-		int regionId = getCurrentRegionId();
-		return isInSepulchreRegion(regionId);
+		// Show overlay if in any Sepulchre region OR if we have an active run
+		return isInAnySepulchreRegion() || currentRun != null;
 	}
 	
 	public SepulchreRun getCurrentRun()

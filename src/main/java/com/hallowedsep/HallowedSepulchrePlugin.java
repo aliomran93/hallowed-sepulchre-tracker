@@ -227,6 +227,23 @@ public class HallowedSepulchrePlugin extends Plugin
 	}
 	
 	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if (!"hallowedsep".equals(event.getGroup()))
+		{
+			return;
+		}
+		
+		if ("trackBetweenFloorIdle".equals(event.getKey()) && !config.trackBetweenFloorIdle())
+		{
+			if (currentRun != null && currentRun.isPaused())
+			{
+				currentRun.resume();
+			}
+		}
+	}
+	
+	@Subscribe
 	public void onStatChanged(StatChanged event)
 	{
 		if (event.getSkill() != Skill.AGILITY)
@@ -289,13 +306,26 @@ public class HallowedSepulchrePlugin extends Plugin
 			}
 			else if (currentFloor > 0)
 			{
-				completeFloor(currentFloor);
+				if (!currentRun.isPaused() && floorStartTime != null)
+				{
+					completeFloor(currentFloor);
+				}
 			}
 			
+			resumeRunForNextFloor();
 			inSepulchre = true;
 			currentFloor = nextFloor;
 			floorStartTime = Instant.now();
 			currentRun.startFloor(nextFloor);
+		}
+		// Detect between-floor idle starts
+		else if (config.trackBetweenFloorIdle() && (message.contains("You jump across the platform.") || message.contains("You squeeze through the gate")))
+		{
+			if (currentRun != null && currentFloor > 0)
+			{
+				log.info("Detected between-floor idle on floor {} via chat", currentFloor);
+				enterIdleBetweenFloors();
+			}
 		}
 		// Detect floor completions - "You have completed Floor 4 of the Hallowed Sepulchre! Total completions: 113."
 		else if (message.contains("You have completed Floor") && message.contains("Total completions:"))
@@ -484,10 +514,31 @@ public class HallowedSepulchrePlugin extends Plugin
 		
 		log.debug("Started new Sepulchre run");
 	}
+
+	private void enterIdleBetweenFloors()
+	{
+		if (currentRun != null)
+		{
+			if (!currentRun.isPaused() && floorStartTime != null && currentFloor > 0)
+			{
+				completeFloor(currentFloor);
+			}
+			currentRun.pause();
+			floorStartTime = null;
+		}
+	}
+
+	private void resumeRunForNextFloor()
+	{
+		if (currentRun != null)
+		{
+			currentRun.resume();
+		}
+	}
 	
 	private void completeFloor(int floor)
 	{
-		if (currentRun == null)
+		if (currentRun == null || floorStartTime == null)
 		{
 			return;
 		}
@@ -506,13 +557,19 @@ public class HallowedSepulchrePlugin extends Plugin
 			return;
 		}
 		
+		Instant endTime = Instant.now();
+		if (currentRun.isPaused())
+		{
+			currentRun.resumeAt(endTime);
+		}
+		
 		// Complete the current floor if we're on one
 		if (currentFloor > 0)
 		{
 			completeFloor(currentFloor);
 		}
 		
-		currentRun.setEndTime(Instant.now());
+		currentRun.setEndTime(endTime);
 		currentRun.setCompleted(completed);
 		currentRun.setHighestFloor(currentFloor);
 		
@@ -663,6 +720,11 @@ public class HallowedSepulchrePlugin extends Plugin
 	public SepulchreRun getCurrentRun()
 	{
 		return currentRun;
+	}
+	
+	public boolean isRunIdle()
+	{
+		return currentRun != null && currentRun.isPaused();
 	}
 	
 	public int getCurrentFloor()

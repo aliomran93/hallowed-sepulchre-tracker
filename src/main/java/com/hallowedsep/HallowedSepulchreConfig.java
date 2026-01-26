@@ -145,6 +145,18 @@ public interface HallowedSepulchreConfig extends Config
 		return false;
 	}
 	
+	@ConfigItem(
+		keyName = "trackBetweenFloorIdle",
+		name = "Track Idle Between Floors",
+		description = "Pause run timer and XP/hr between floors",
+		section = trackingSection,
+		position = 2
+	)
+	default boolean trackBetweenFloorIdle()
+	{
+		return true;
+	}
+	
 	// Goals Section
 	@ConfigItem(
 		keyName = "targetLevel",

@@ -48,9 +48,11 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 			.color(new Color(170, 130, 255))
 			.build());
 		
-		// Current floor
+		boolean runIdle = plugin.isRunIdle();
 		int currentFloor = plugin.getCurrentFloor();
-		if (currentFloor > 0)
+		
+		// Current floor
+		if (!runIdle && currentFloor > 0)
 		{
 			panelComponent.getChildren().add(LineComponent.builder()
 				.left("Floor:")
@@ -71,7 +73,7 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 		}
 		
 		// Floor timer
-		if (config.showFloorTimer() && currentFloor > 0 && plugin.getFloorStartTime() != null)
+		if (config.showFloorTimer() && !runIdle && currentFloor > 0 && plugin.getFloorStartTime() != null)
 		{
 			Duration floorTime = Duration.between(plugin.getFloorStartTime(), Instant.now());
 			panelComponent.getChildren().add(LineComponent.builder()

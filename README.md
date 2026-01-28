@@ -45,10 +45,6 @@ A RuneLite plugin that tracks your progress in the Hallowed Sepulchre minigame.
 ./gradlew build
 ```
 
-## Development
-
-This plugin was built with **vibe coding** 🤙
-
 ## License
 
 BSD 2-Clause License

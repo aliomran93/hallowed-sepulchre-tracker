@@ -102,6 +102,7 @@ public class HallowedSepulchrePlugin extends Plugin
 	private HallowedSepulchrePanel panel;
 	private int lastAgilityXp;
 	private int lastRegionId;
+	private boolean hidePluginTabOutsideSepulchre;
 	
 	@Override
 	protected void startUp() throws Exception
@@ -121,6 +122,7 @@ public class HallowedSepulchrePlugin extends Plugin
 		currentFloor = 0;
 		lastAgilityXp = -1;
 		lastRegionId = -1;
+		hidePluginTabOutsideSepulchre = config.hidePluginTabOutsideSepulchre();
 		
 		overlayManager.add(overlay);
 		overlayManager.add(infoBox);
@@ -149,8 +151,8 @@ public class HallowedSepulchrePlugin extends Plugin
 			.priority(6)
 			.panel(panel)
 			.build();
-		
-		clientToolbar.addNavigation(navButton);
+
+		updatePluginTabVisibility();
 	}
 	
 	@Override
@@ -187,6 +189,16 @@ public class HallowedSepulchrePlugin extends Plugin
 			inSepulchre = false;
 			currentFloor = 0;
 			lastRegionId = -1;
+		}
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if (event.getGroup().equals("hallowedsep"))
+		{
+			hidePluginTabOutsideSepulchre = config.hidePluginTabOutsideSepulchre();
+			updatePluginTabVisibility();
 		}
 	}
 	
@@ -421,9 +433,8 @@ public class HallowedSepulchrePlugin extends Plugin
 			inSepulchre = false;
 			currentFloor = 0;
 		}
-		
-		// All run start/floor change logic is handled via chat messages
-		// See onChatMessage() for reliable detection
+
+		updatePluginTabVisibility();
 	}
 	
 	/**
@@ -794,6 +805,18 @@ public class HallowedSepulchrePlugin extends Plugin
 			return String.format("%.1fK", number / 1_000.0);
 		}
 		return String.valueOf(number);
+	}
+
+	private void updatePluginTabVisibility()
+	{
+		if (hidePluginTabOutsideSepulchre && !isInAnySepulchreRegion() && currentRun == null)
+		{
+			clientToolbar.removeNavigation(navButton);
+		}
+		else
+		{
+			clientToolbar.addNavigation(navButton);
+		}
 	}
 	
 	@Provides

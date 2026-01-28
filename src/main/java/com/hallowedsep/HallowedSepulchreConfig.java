@@ -34,7 +34,19 @@ public interface HallowedSepulchreConfig extends Config
 		position = 3
 	)
 	String xpSection = "xp";
-	
+
+	@ConfigItem(
+		keyName = "hidePluginTabOutsideSepulchre",
+		name = "Hide Plugin Tab Outside Sepulchre",
+		description = "Hide the plugin tab outside of the Hallowed Sepulchre",
+		section = displaySection,
+		position = 1
+	)
+	default boolean hidePluginTabOutsideSepulchre()
+	{
+		return true;
+	}
+
 	// Display Section
 	@ConfigItem(
 		keyName = "showOverlay",

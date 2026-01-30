@@ -16,6 +16,7 @@ public class DailyStats
 	private Map<Integer, Integer> floorCompletions = new HashMap<>();
 	private int chestsLooted;
 	private int grandCoffinsLooted;
+	private int failedRuns;
 	
 	public DailyStats()
 	{
@@ -67,5 +68,16 @@ public class DailyStats
 	{
 		if (runs == 0) return 0;
 		return (double) totalXp / runs;
+	}
+	
+	public double getAverageFailsPerRun()
+	{
+		if (runs == 0) return 0;
+		return (double) failedRuns / runs;
+	}
+	
+	public void incrementFailedRuns()
+	{
+		this.failedRuns++;
 	}
 }

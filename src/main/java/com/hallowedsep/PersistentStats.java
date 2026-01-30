@@ -15,6 +15,7 @@ public class PersistentStats
 	private Map<Integer, Integer> allTimeFloorCompletions = new HashMap<>();
 	private int allTimeChestsLooted;
 	private int allTimeGrandCoffins;
+	private int allTimeFailedRuns;
 	
 	// Best times (in milliseconds)
 	private long bestRunTimeMs;
@@ -55,6 +56,12 @@ public class PersistentStats
 		allTimeXp += xp;
 		allTimeMs += timeMs;
 		
+		// Track failed runs
+		if (!run.isCompleted())
+		{
+			allTimeFailedRuns++;
+		}
+		
 		// Update best run time
 		if (run.isCompleted() && (bestRunTimeMs == 0 || timeMs < bestRunTimeMs))
 		{
@@ -94,6 +101,12 @@ public class PersistentStats
 			today.setGrandCoffinsLooted(today.getGrandCoffinsLooted() + 1);
 		}
 		
+		// Track failed runs in daily stats
+		if (!run.isCompleted())
+		{
+			today.incrementFailedRuns();
+		}
+		
 		// Update floor completions for today
 		for (Map.Entry<Integer, SepulchreRun.FloorData> entry : run.getFloorData().entrySet())
 		{
@@ -119,6 +132,12 @@ public class PersistentStats
 	{
 		if (allTimeRuns == 0) return 0;
 		return (double) allTimeXp / allTimeRuns;
+	}
+	
+	public double getAllTimeAvgFailsPerRun()
+	{
+		if (allTimeRuns == 0) return 0;
+		return (double) allTimeFailedRuns / allTimeRuns;
 	}
 	
 	public int getAllTimeFloorCompletions(int floor)

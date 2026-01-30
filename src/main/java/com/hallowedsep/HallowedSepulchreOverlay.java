@@ -121,6 +121,18 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 				.build());
 		}
 		
+		// Average fails per run from daily stats
+		DailyStats today = plugin.getPersistentStats().getToday();
+		if (today != null && today.getRuns() > 0)
+		{
+			double avgFails = today.getAverageFailsPerRun();
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Avg Fails/Run:")
+				.right(String.format("%.2f", avgFails))
+				.rightColor(avgFails > 0.5 ? new Color(255, 100, 100) : Color.LIGHT_GRAY)
+				.build());
+		}
+		
 		return super.render(graphics);
 	}
 	

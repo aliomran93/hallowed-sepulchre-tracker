@@ -170,6 +170,11 @@ public class HallowedSepulchrePanel extends PluginPanel
 			{
 				int avgXp = today.getTotalXp() / today.getRuns();
 				addStatRow(content, "Avg/Run", formatNumber(avgXp), TEXT_SECONDARY, TEXT_PRIMARY);
+				
+				// Average fails per run
+				double avgFails = today.getAverageFailsPerRun();
+				Color failColor = avgFails > 0.5 ? RED_DANGER : (avgFails > 0.25 ? ORANGE_WARN : GREEN_SUCCESS);
+				addStatRow(content, "Avg Fails/Run", String.format("%.2f", avgFails), TEXT_SECONDARY, failColor);
 			}
 		}
 		

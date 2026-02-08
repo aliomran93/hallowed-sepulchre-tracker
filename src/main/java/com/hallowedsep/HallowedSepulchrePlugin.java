@@ -84,22 +84,16 @@ public class HallowedSepulchrePlugin extends Plugin
 	
 	private Gson configuredGson;
 	
-	@Getter
 	private HallowedSepulchreSession session;
 	
-	@Getter
 	private PersistentStats persistentStats;
 	
-	@Getter
 	private SepulchreRun currentRun;
 	
-	@Getter
 	private boolean inSepulchre;
 	
-	@Getter
 	private int currentFloor;
 	
-	@Getter
 	private Instant floorStartTime;
 	
 	private NavigationButton navButton;

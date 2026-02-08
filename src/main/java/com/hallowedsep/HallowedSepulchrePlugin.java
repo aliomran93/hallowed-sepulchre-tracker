@@ -199,10 +199,20 @@ public class HallowedSepulchrePlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (event.getGroup().equals("hallowedsep"))
+		if (!"hallowedsep".equals(event.getGroup()))
 		{
-			hidePluginTabOutsideSepulchre = config.hidePluginTabOutsideSepulchre();
-			updatePluginTabVisibility();
+			return;
+		}
+
+		hidePluginTabOutsideSepulchre = config.hidePluginTabOutsideSepulchre();
+		updatePluginTabVisibility();
+
+		if ("trackBetweenFloorIdle".equals(event.getKey()) && !config.trackBetweenFloorIdle())
+		{
+			if (currentRun != null && currentRun.isPaused())
+			{
+				currentRun.resume();
+			}
 		}
 	}
 	
@@ -227,23 +237,6 @@ public class HallowedSepulchrePlugin extends Plugin
 		if (panel != null)
 		{
 			panel.updateStats();
-		}
-	}
-	
-	@Subscribe
-	public void onConfigChanged(ConfigChanged event)
-	{
-		if (!"hallowedsep".equals(event.getGroup()))
-		{
-			return;
-		}
-		
-		if ("trackBetweenFloorIdle".equals(event.getKey()) && !config.trackBetweenFloorIdle())
-		{
-			if (currentRun != null && currentRun.isPaused())
-			{
-				currentRun.resume();
-			}
 		}
 	}
 	

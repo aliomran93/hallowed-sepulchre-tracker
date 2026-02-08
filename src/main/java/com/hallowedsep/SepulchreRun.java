@@ -37,8 +37,15 @@ public class SepulchreRun
 		if (data != null)
 		{
 			data.setEndTime(Instant.now());
-			data.setDuration(duration);
+			if (!data.isTimeFromGame())
+			{
+				data.setDuration(duration);
+			}
 			data.setCompleted(true);
+			if (!data.isTimeFromGame())
+			{
+				data.setTimeFromGame(false);
+			}
 		}
 		else
 		{
@@ -46,8 +53,23 @@ public class SepulchreRun
 			data.setFloorNumber(floor);
 			data.setDuration(duration);
 			data.setCompleted(true);
+			data.setTimeFromGame(false);
 			floorData.put(floor, data);
 		}
+	}
+
+	public void setFloorTimeFromGame(int floor, Duration duration)
+	{
+		FloorData data = floorData.get(floor);
+		if (data == null)
+		{
+			data = new FloorData();
+			data.setFloorNumber(floor);
+			floorData.put(floor, data);
+		}
+		data.setDuration(duration);
+		data.setCompleted(true);
+		data.setTimeFromGame(true);
 	}
 	
 	public void addXp(int xp)
@@ -138,6 +160,7 @@ public class SepulchreRun
 		private Instant endTime;
 		private Duration duration;
 		private boolean completed;
+		private boolean timeFromGame;
 		private int xpGained;
 		private int chestsLooted;
 		private int deaths;

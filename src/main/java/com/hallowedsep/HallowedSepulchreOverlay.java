@@ -25,6 +25,7 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 		
 		setPosition(OverlayPosition.TOP_LEFT);
 		setPriority(OverlayPriority.LOW);
+		panelComponent.setPreferredSize(new Dimension(180, 0));
 	}
 	
 	@Override
@@ -41,6 +42,8 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 		{
 			return null;
 		}
+
+		PersistentStats stats = plugin.getPersistentStats();
 		
 		// Title
 		panelComponent.getChildren().add(TitleComponent.builder()
@@ -51,36 +54,94 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 		boolean runIdle = plugin.isRunIdle();
 		int currentFloor = plugin.getCurrentFloor();
 		
-		// Current floor
-		if (!runIdle && currentFloor > 0)
+		// Split times per floor (only show floors with a personal best)
+		if (config.showFloorTimer() && stats != null)
 		{
-			panelComponent.getChildren().add(LineComponent.builder()
-				.left("Floor:")
-				.right(String.valueOf(currentFloor))
-				.rightColor(getFloorColor(currentFloor))
-				.build());
+			for (int floor = 1; floor <= 5; floor++)
+			{
+				long pbMs = stats.getBestFloorTimeMs(floor);
+				if (pbMs <= 0)
+				{
+					continue;
+				}
+
+				SepulchreRun.FloorData floorData = currentRun.getFloorData().get(floor);
+				String splitText = "--";
+				long splitMs = 0;
+				boolean timeFromGame = false;
+
+				if (floorData != null && floorData.getDuration() != null && floorData.getDuration().toMillis() > 0)
+				{
+					splitMs = floorData.getDuration().toMillis();
+					splitText = HallowedSepulchrePlugin.formatDuration(floorData.getDuration());
+					timeFromGame = floorData.isTimeFromGame();
+				}
+				else if (!runIdle && floor == currentFloor && plugin.getFloorStartTime() != null)
+				{
+					Duration liveTime = Duration.between(plugin.getFloorStartTime(), Instant.now());
+					splitText = HallowedSepulchrePlugin.formatDuration(liveTime);
+					splitMs = liveTime.toMillis();
+				}
+
+				String deltaText = "";
+				Color leftColor = Color.WHITE;
+				if (splitMs > 0)
+				{
+					long deltaMs = splitMs - pbMs;
+					if (timeFromGame)
+					{
+						deltaText = " " + formatDeltaColored(deltaMs);
+					}
+					else if (deltaMs > 0)
+					{
+						// Show only live "behind PB" deltas to reduce noise mid-floor.
+						deltaText = " " + formatDeltaColored(deltaMs);
+					}
+				}
+
+				panelComponent.getChildren().add(LineComponent.builder()
+					.left("F" + floor + ": " + splitText + deltaText)
+					.leftColor(leftColor)
+					.right("PB " + HallowedSepulchrePlugin.formatDuration(Duration.ofMillis(pbMs)))
+					.rightColor(new Color(180, 180, 190))
+					.build());
+			}
 		}
 		
-		// Run timer
-		if (config.showRunTimer())
+		// Total run timer vs PB (if available)
+		if (config.showRunTimer() && stats != null)
 		{
-			Duration runTime = currentRun.getDuration();
-			panelComponent.getChildren().add(LineComponent.builder()
-				.left("Run Time:")
-				.right(HallowedSepulchrePlugin.formatDuration(runTime))
-				.rightColor(Color.WHITE)
-				.build());
-		}
-		
-		// Floor timer
-		if (config.showFloorTimer() && !runIdle && currentFloor > 0 && plugin.getFloorStartTime() != null)
-		{
-			Duration floorTime = Duration.between(plugin.getFloorStartTime(), Instant.now());
-			panelComponent.getChildren().add(LineComponent.builder()
-				.left("Floor Time:")
-				.right(HallowedSepulchrePlugin.formatDuration(floorTime))
-				.rightColor(Color.YELLOW)
-				.build());
+			int pbFloors = getContiguousPbFloors(stats);
+
+			if (pbFloors > 0)
+			{
+				long totalPbMs = stats.getBestRunTimeForFloorsMs(pbFloors);
+				if (totalPbMs <= 0)
+				{
+					// Fallback for existing users before per-run totals are recorded
+					totalPbMs = getFallbackTotalPbMs(stats, pbFloors);
+				}
+				if (totalPbMs > 0)
+				{
+					long totalRunMs = getTotalRunMs(currentRun, pbFloors, currentFloor, runIdle, plugin.getFloorStartTime());
+					String runText = totalRunMs > 0 ? HallowedSepulchrePlugin.formatDuration(Duration.ofMillis(totalRunMs)) : "--";
+					boolean canCompare = hasOfficialSplits(currentRun, pbFloors);
+					long deltaMs = totalRunMs - totalPbMs;
+					String deltaText = "";
+					if (totalRunMs > 0 && (canCompare || deltaMs > 0))
+					{
+						deltaText = " " + formatDeltaColored(deltaMs);
+					}
+					Color leftColor = Color.WHITE;
+
+					panelComponent.getChildren().add(LineComponent.builder()
+						.left("Total: " + runText + deltaText)
+						.leftColor(leftColor)
+						.right("PB " + HallowedSepulchrePlugin.formatDuration(Duration.ofMillis(totalPbMs)))
+						.rightColor(new Color(180, 180, 190))
+						.build());
+				}
+			}
 		}
 		
 		// XP gained this run
@@ -112,6 +173,16 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 			}
 		}
 		
+		// Current floor
+		if (!runIdle && currentFloor > 0)
+		{
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Floor:")
+				.right(String.valueOf(currentFloor))
+				.rightColor(getFloorColor(currentFloor))
+				.build());
+		}
+
 		// Floors completed this run
 		int floorsCompleted = currentRun.getFloorsCompleted();
 		if (floorsCompleted > 0)
@@ -143,5 +214,94 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 			default:
 				return Color.WHITE;
 		}
+	}
+
+	private String formatDelta(long deltaMs)
+	{
+		long absSeconds = Math.abs(deltaMs) / 1000;
+		String sign = deltaMs >= 0 ? "+" : "-";
+
+		if (absSeconds < 60)
+		{
+			return sign + absSeconds + "s";
+		}
+
+		long minutes = absSeconds / 60;
+		long seconds = absSeconds % 60;
+		return String.format("%s%d:%02d", sign, minutes, seconds);
+	}
+
+	private String formatDeltaColored(long deltaMs)
+	{
+		String color = deltaMs <= 0 ? "64dc64" : "ffd700";
+		// Use an explicit reset color tag instead of </col>, which can render literally.
+		return "<col=" + color + ">(" + formatDelta(deltaMs) + ")<col=ffffff>";
+	}
+
+	private int getContiguousPbFloors(PersistentStats stats)
+	{
+		int count = 0;
+		for (int floor = 1; floor <= 5; floor++)
+		{
+			if (stats.getBestFloorTimeMs(floor) > 0)
+			{
+				count++;
+			}
+			else
+			{
+				break;
+			}
+		}
+		return count;
+	}
+
+	private long getTotalRunMs(SepulchreRun run, int floors, int currentFloor, boolean runIdle, Instant floorStartTime)
+	{
+		long totalMs = 0;
+		for (int floor = 1; floor <= floors; floor++)
+		{
+			SepulchreRun.FloorData data = run.getFloorData().get(floor);
+			if (data != null && data.getDuration() != null)
+			{
+				totalMs += data.getDuration().toMillis();
+			}
+			else if (!runIdle && floor == currentFloor && floorStartTime != null)
+			{
+				totalMs += Duration.between(floorStartTime, Instant.now()).toMillis();
+			}
+			else
+			{
+				break;
+			}
+		}
+		return totalMs;
+	}
+
+	private boolean hasOfficialSplits(SepulchreRun run, int floors)
+	{
+		for (int floor = 1; floor <= floors; floor++)
+		{
+			SepulchreRun.FloorData data = run.getFloorData().get(floor);
+			if (data == null || !data.isTimeFromGame() || data.getDuration() == null || data.getDuration().toMillis() <= 0)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private long getFallbackTotalPbMs(PersistentStats stats, int floors)
+	{
+		long totalMs = 0;
+		for (int floor = 1; floor <= floors; floor++)
+		{
+			long floorPbMs = stats.getBestFloorTimeMs(floor);
+			if (floorPbMs <= 0)
+			{
+				return 0;
+			}
+			totalMs += floorPbMs;
+		}
+		return totalMs;
 	}
 }

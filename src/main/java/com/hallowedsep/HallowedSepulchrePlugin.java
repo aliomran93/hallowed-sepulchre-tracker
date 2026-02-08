@@ -21,6 +21,8 @@ import javax.inject.Inject;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @PluginDescriptor(
@@ -50,6 +52,8 @@ public class HallowedSepulchrePlugin extends Plugin
 	private static final int COFFIN = 39545;
 	private static final int GRAND_HALLOWED_COFFIN = 39546;
 	private static final int MAGICAL_OBELISK = 39558;
+
+	private static final Pattern FLOOR_TIME_PATTERN = Pattern.compile("Floor\\s+(\\d+)\\s+time:\\s*([0-9]+:[0-9]{1,2})");
 	
 	@Inject
 	private Client client;
@@ -363,22 +367,35 @@ public class HallowedSepulchrePlugin extends Plugin
 			}
 		}
 		// Detect floor time - "Floor 4 time: 2:05. Personal best: 1:38"
-		else if (message.contains("Floor") && message.contains("time:") && message.contains("Personal best:"))
+		else if (message.contains("Floor") && message.contains("time:"))
 		{
 			try
 			{
-				// Extract floor number
+				String cleanMessage = message.replaceAll("<[^>]+>", "");
 				int floorNum = 0;
-				for (int f = 1; f <= 5; f++)
+				Matcher matcher = FLOOR_TIME_PATTERN.matcher(cleanMessage);
+				if (matcher.find())
 				{
-					if (message.contains("Floor " + f + " time:"))
+					floorNum = Integer.parseInt(matcher.group(1));
+					long floorTimeMs = parseTimeMs(matcher.group(2));
+					if (currentRun != null && floorTimeMs > 0)
 					{
-						floorNum = f;
-						break;
+						currentRun.setFloorTimeFromGame(floorNum, Duration.ofMillis(floorTimeMs));
+					}
+				}
+				else
+				{
+					for (int f = 1; f <= 5; f++)
+					{
+						if (message.contains("Floor " + f + " time:"))
+						{
+							floorNum = f;
+							break;
+						}
 					}
 				}
 				
-				if (floorNum > 0)
+				if (floorNum > 0 && message.contains("Personal best:"))
 				{
 					// Extract personal best time - "Personal best: 1:38"
 					String pbStr = message.substring(message.indexOf("Personal best:") + 14).trim();
@@ -399,7 +416,7 @@ public class HallowedSepulchrePlugin extends Plugin
 			}
 		}
 		// Detect returning to lobby
-		else if (message.contains("teleports you back to the lobby"))
+		else if (message.contains("teleports you back to the lobby") || message.contains("make your way back to the lobby"))
 		{
 			log.info("Detected return to lobby via chat message");
 			if (currentRun != null)
@@ -731,6 +748,11 @@ public class HallowedSepulchrePlugin extends Plugin
 	{
 		return currentFloor;
 	}
+
+	public Instant getFloorStartTime()
+	{
+		return floorStartTime;
+	}
 	
 	public int getLastRegionId()
 	{
@@ -854,6 +876,29 @@ public class HallowedSepulchrePlugin extends Plugin
 			return String.format("%d:%02d:%02d", hours, minutes, seconds);
 		}
 		return String.format("%d:%02d", minutes, seconds);
+	}
+
+	private static long parseTimeMs(String timeStr)
+	{
+		if (timeStr == null)
+		{
+			return 0;
+		}
+		String[] parts = timeStr.trim().split(":");
+		if (parts.length != 2)
+		{
+			return 0;
+		}
+		try
+		{
+			long minutes = Long.parseLong(parts[0]);
+			long seconds = Long.parseLong(parts[1]);
+			return (minutes * 60 + seconds) * 1000;
+		}
+		catch (NumberFormatException e)
+		{
+			return 0;
+		}
 	}
 	
 	public static String formatNumber(int number)

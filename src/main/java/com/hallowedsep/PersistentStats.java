@@ -19,6 +19,7 @@ public class PersistentStats
 	// Best times (in milliseconds)
 	private long bestRunTimeMs;
 	private Map<Integer, Long> bestFloorTimes = new HashMap<>();
+	private Map<Integer, Long> bestRunTimesByFloors = new HashMap<>();
 	
 	// Daily stats - keyed by date string (YYYY-MM-DD)
 	private Map<String, DailyStats> dailyHistory = new LinkedHashMap<>();
@@ -33,6 +34,7 @@ public class PersistentStats
 		{
 			allTimeFloorCompletions.put(i, 0);
 			bestFloorTimes.put(i, Long.MAX_VALUE);
+			bestRunTimesByFloors.put(i, Long.MAX_VALUE);
 		}
 		this.startDate = LocalDate.now().toString();
 	}
@@ -55,19 +57,13 @@ public class PersistentStats
 		allTimeXp += xp;
 		allTimeMs += timeMs;
 		
-		// Update best run time
-		if (run.isCompleted() && (bestRunTimeMs == 0 || timeMs < bestRunTimeMs))
-		{
-			bestRunTimeMs = timeMs;
-		}
-		
-		// Update best times only (floor completions come from game chat via setFloorCompletionsFromGame)
+		// Update best times only when the floor time came from the game's chat message
 		for (Map.Entry<Integer, SepulchreRun.FloorData> entry : run.getFloorData().entrySet())
 		{
 			int floor = entry.getKey();
 			SepulchreRun.FloorData floorData = entry.getValue();
 			
-			if (floorData.isCompleted() && floorData.getDuration() != null)
+			if (floorData.isCompleted() && floorData.isTimeFromGame() && floorData.getDuration() != null)
 			{
 				long floorTime = floorData.getDuration().toMillis();
 				Long currentBest = bestFloorTimes.get(floor);
@@ -78,6 +74,41 @@ public class PersistentStats
 			}
 		}
 		
+		// Update best total times using summed official floor splits
+		if (run.isCompleted())
+		{
+			long totalSplitMs = 0;
+			int floorsWithSplits = 0;
+			for (int floor = 1; floor <= 5; floor++)
+			{
+				SepulchreRun.FloorData data = run.getFloorData().get(floor);
+				if (data != null && data.isTimeFromGame() && data.getDuration() != null && data.getDuration().toMillis() > 0)
+				{
+					totalSplitMs += data.getDuration().toMillis();
+					floorsWithSplits++;
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			if (floorsWithSplits > 0)
+			{
+				Long currentBest = bestRunTimesByFloors.get(floorsWithSplits);
+				if (currentBest == null || currentBest == Long.MAX_VALUE || totalSplitMs < currentBest)
+				{
+					bestRunTimesByFloors.put(floorsWithSplits, totalSplitMs);
+				}
+
+				// Keep legacy full-run PB in sync when we have all five floors
+				if (floorsWithSplits == 5 && (bestRunTimeMs == 0 || totalSplitMs < bestRunTimeMs))
+				{
+					bestRunTimeMs = totalSplitMs;
+				}
+			}
+		}
+
 		// Update chest counts
 		allTimeChestsLooted += run.getTotalChestsLooted();
 		if (run.isLootedGrandCoffin())
@@ -134,6 +165,12 @@ public class PersistentStats
 	public long getBestFloorTimeMs(int floor)
 	{
 		Long time = bestFloorTimes.get(floor);
+		return (time == null || time == Long.MAX_VALUE) ? 0 : time;
+	}
+
+	public long getBestRunTimeForFloorsMs(int floors)
+	{
+		Long time = bestRunTimesByFloors.get(floors);
 		return (time == null || time == Long.MAX_VALUE) ? 0 : time;
 	}
 	
@@ -197,6 +234,10 @@ public class PersistentStats
 		{
 			bestFloorTimes = new HashMap<>();
 		}
+		if (bestRunTimesByFloors == null)
+		{
+			bestRunTimesByFloors = new HashMap<>();
+		}
 		if (dailyHistory == null)
 		{
 			dailyHistory = new LinkedHashMap<>();
@@ -207,6 +248,7 @@ public class PersistentStats
 		{
 			allTimeFloorCompletions.putIfAbsent(i, 0);
 			bestFloorTimes.putIfAbsent(i, Long.MAX_VALUE);
+			bestRunTimesByFloors.putIfAbsent(i, Long.MAX_VALUE);
 		}
 	}
 }

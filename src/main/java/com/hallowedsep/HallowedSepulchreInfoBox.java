@@ -52,10 +52,23 @@ public class HallowedSepulchreInfoBox extends OverlayPanel
 		
 		// Status based on current run (more reliable than region detection)
 		SepulchreRun currentRun = plugin.getCurrentRun();
-		boolean hasActiveRun = currentRun != null;
+		boolean runIdle = plugin.isRunIdle();
+		boolean hasActiveRun = currentRun != null && !runIdle;
 		int floor = plugin.getCurrentFloor();
 		
-		String statusText = hasActiveRun ? "FLOOR " + floor : "IDLE";
+		String statusText;
+		if (hasActiveRun)
+		{
+			statusText = "FLOOR " + floor;
+		}
+		else if (runIdle && floor > 0)
+		{
+			statusText = "IDLE (FLOOR " + floor + ")";
+		}
+		else
+		{
+			statusText = "IDLE";
+		}
 		Color statusColor = hasActiveRun ? Color.GREEN : Color.GRAY;
 		
 		panelComponent.getChildren().add(LineComponent.builder()

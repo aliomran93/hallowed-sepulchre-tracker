@@ -12,6 +12,8 @@ public class SepulchreRun
 {
 	private Instant startTime;
 	private Instant endTime;
+	private Instant pausedAt;
+	private long pausedDurationMs;
 	private int startXp;
 	private int totalXp;
 	private int highestFloor;
@@ -35,8 +37,15 @@ public class SepulchreRun
 		if (data != null)
 		{
 			data.setEndTime(Instant.now());
-			data.setDuration(duration);
+			if (!data.isTimeFromGame())
+			{
+				data.setDuration(duration);
+			}
 			data.setCompleted(true);
+			if (!data.isTimeFromGame())
+			{
+				data.setTimeFromGame(false);
+			}
 		}
 		else
 		{
@@ -44,8 +53,23 @@ public class SepulchreRun
 			data.setFloorNumber(floor);
 			data.setDuration(duration);
 			data.setCompleted(true);
+			data.setTimeFromGame(false);
 			floorData.put(floor, data);
 		}
+	}
+
+	public void setFloorTimeFromGame(int floor, Duration duration)
+	{
+		FloorData data = floorData.get(floor);
+		if (data == null)
+		{
+			data = new FloorData();
+			data.setFloorNumber(floor);
+			floorData.put(floor, data);
+		}
+		data.setDuration(duration);
+		data.setCompleted(true);
+		data.setTimeFromGame(true);
 	}
 	
 	public void addXp(int xp)
@@ -76,7 +100,14 @@ public class SepulchreRun
 		}
 		
 		Instant end = endTime != null ? endTime : Instant.now();
-		return Duration.between(startTime, end);
+		long totalMs = Duration.between(startTime, end).toMillis();
+		long pausedMs = pausedDurationMs;
+		if (pausedAt != null)
+		{
+			pausedMs += Duration.between(pausedAt, end).toMillis();
+		}
+		long effectiveMs = Math.max(0, totalMs - pausedMs);
+		return Duration.ofMillis(effectiveMs);
 	}
 	
 	public Duration getFloorDuration(int floor)
@@ -93,6 +124,33 @@ public class SepulchreRun
 	{
 		return (int) floorData.values().stream().filter(FloorData::isCompleted).count();
 	}
+
+	public boolean isPaused()
+	{
+		return pausedAt != null;
+	}
+
+	public void pause()
+	{
+		if (pausedAt == null)
+		{
+			pausedAt = Instant.now();
+		}
+	}
+
+	public void resume()
+	{
+		resumeAt(Instant.now());
+	}
+
+	public void resumeAt(Instant time)
+	{
+		if (pausedAt != null)
+		{
+			pausedDurationMs += Duration.between(pausedAt, time).toMillis();
+			pausedAt = null;
+		}
+	}
 	
 	@Data
 	public static class FloorData
@@ -102,6 +160,7 @@ public class SepulchreRun
 		private Instant endTime;
 		private Duration duration;
 		private boolean completed;
+		private boolean timeFromGame;
 		private int xpGained;
 		private int chestsLooted;
 		private int deaths;

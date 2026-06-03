@@ -185,16 +185,15 @@ public interface HallowedSepulchreConfig extends Config
 	}
 	
 	@ConfigItem(
-		keyName = "milestoneLevel",
-		name = "Milestone Level",
-		description = "Intermediate milestone level (e.g., 92 for floor 5 access)",
+		keyName = "milestoneLevels",
+		name = "Milestone Levels",
+		description = "Comma-separated milestone levels before the main goal (for example: 92,95,97)",
 		section = goalsSection,
 		position = 2
 	)
-	@Range(min = 1, max = 99)
-	default int milestoneLevel()
+	default String milestoneLevels()
 	{
-		return 92;
+		return "92";
 	}
 	
 	// XP Estimates Section

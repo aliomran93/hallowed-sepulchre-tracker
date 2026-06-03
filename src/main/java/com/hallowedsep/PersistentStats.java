@@ -3,6 +3,7 @@ package com.hallowedsep;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Data
@@ -27,6 +28,15 @@ public class PersistentStats
 	// Starting XP when we first started tracking
 	private int startingXp;
 	private String startDate;
+
+	// Current goal phase stats. These are reset when the main goal changes.
+	private String phaseStartDate;
+	private int phaseStartLevel;
+	private int phaseStartXp;
+	private int phaseTargetLevel = 99;
+	private int phaseRuns;
+	private int phaseXp;
+	private long phaseMs;
 	
 	public PersistentStats()
 	{
@@ -37,6 +47,7 @@ public class PersistentStats
 			bestRunTimesByFloors.put(i, Long.MAX_VALUE);
 		}
 		this.startDate = LocalDate.now().toString();
+		this.phaseStartDate = this.startDate;
 	}
 	
 	public DailyStats getToday()
@@ -56,6 +67,11 @@ public class PersistentStats
 		allTimeRuns++;
 		allTimeXp += xp;
 		allTimeMs += timeMs;
+
+		// Update current goal phase stats
+		phaseRuns++;
+		phaseXp += xp;
+		phaseMs += timeMs;
 		
 		// Update best times only when the floor time came from the game's chat message
 		for (Map.Entry<Integer, SepulchreRun.FloorData> entry : run.getFloorData().entrySet())
@@ -206,19 +222,101 @@ public class PersistentStats
 	
 	public int getDaysTracked()
 	{
-		return dailyHistory.size();
+		LocalDate start = getTrackingStartDate();
+		LocalDate today = LocalDate.now();
+		if (start.isAfter(today))
+		{
+			return 1;
+		}
+		return (int) ChronoUnit.DAYS.between(start, today) + 1;
 	}
 	
 	public double getAverageRunsPerDay()
 	{
-		if (dailyHistory.isEmpty()) return 0;
-		return (double) allTimeRuns / dailyHistory.size();
+		if (allTimeRuns == 0) return 0;
+		return (double) allTimeRuns / getDaysTracked();
 	}
 	
 	public double getAverageHoursPerDay()
 	{
-		if (dailyHistory.isEmpty()) return 0;
-		return getAllTimeHours() / dailyHistory.size();
+		if (allTimeMs == 0) return 0;
+		return getAllTimeHours() / getDaysTracked();
+	}
+
+	public void resetGoalPhase(LocalDate phaseStart, int currentLevel, int currentXp, int targetLevel)
+	{
+		LocalDate start = phaseStart != null ? phaseStart : LocalDate.now();
+		phaseStartDate = start.toString();
+		phaseStartLevel = currentLevel;
+		phaseStartXp = currentXp;
+		phaseTargetLevel = targetLevel;
+		phaseRuns = 0;
+		phaseXp = 0;
+		phaseMs = 0;
+	}
+
+	public boolean ensureGoalPhase(int currentLevel, int currentXp, int targetLevel)
+	{
+		if (parseDate(phaseStartDate) == null || phaseTargetLevel != targetLevel)
+		{
+			resetGoalPhase(LocalDate.now(), currentLevel, currentXp, targetLevel);
+			return true;
+		}
+		return false;
+	}
+
+	public int getPhaseDaysTracked()
+	{
+		LocalDate start = getPhaseTrackingStartDate();
+		LocalDate today = LocalDate.now();
+		if (start.isAfter(today))
+		{
+			return 1;
+		}
+		return (int) ChronoUnit.DAYS.between(start, today) + 1;
+	}
+
+	public int getPhaseActiveDays()
+	{
+		if (dailyHistory == null || dailyHistory.isEmpty())
+		{
+			return 0;
+		}
+
+		LocalDate start = getPhaseTrackingStartDate();
+		LocalDate today = LocalDate.now();
+		int activeDays = 0;
+		for (DailyStats day : dailyHistory.values())
+		{
+			if (day == null || day.getRuns() <= 0)
+			{
+				continue;
+			}
+
+			LocalDate date = parseDate(day.getDate());
+			if (date != null && !date.isBefore(start) && !date.isAfter(today))
+			{
+				activeDays++;
+			}
+		}
+		return activeDays;
+	}
+
+	public int getPhaseMissedDays()
+	{
+		return Math.max(0, getPhaseDaysTracked() - getPhaseActiveDays());
+	}
+
+	public double getPhaseAverageRunsPerDay()
+	{
+		if (phaseRuns == 0) return 0;
+		return (double) phaseRuns / getPhaseDaysTracked();
+	}
+
+	public double getPhaseAverageHoursPerDay()
+	{
+		if (phaseMs == 0) return 0;
+		return (phaseMs / 3_600_000.0) / getPhaseDaysTracked();
 	}
 
 	/**
@@ -249,6 +347,78 @@ public class PersistentStats
 			allTimeFloorCompletions.putIfAbsent(i, 0);
 			bestFloorTimes.putIfAbsent(i, Long.MAX_VALUE);
 			bestRunTimesByFloors.putIfAbsent(i, Long.MAX_VALUE);
+		}
+
+		if (parseDate(startDate) == null)
+		{
+			startDate = getEarliestHistoryDate().orElse(LocalDate.now()).toString();
+		}
+		if (parseDate(phaseStartDate) == null)
+		{
+			phaseStartDate = getTrackingStartDate().toString();
+			phaseTargetLevel = phaseTargetLevel > 0 ? phaseTargetLevel : 99;
+			if (phaseRuns == 0 && allTimeRuns > 0)
+			{
+				phaseRuns = allTimeRuns;
+				phaseXp = allTimeXp;
+				phaseMs = allTimeMs;
+			}
+		}
+	}
+
+	private LocalDate getTrackingStartDate()
+	{
+		LocalDate parsedStartDate = parseDate(startDate);
+		if (parsedStartDate != null)
+		{
+			return parsedStartDate;
+		}
+		return getEarliestHistoryDate().orElse(LocalDate.now());
+	}
+
+	private Optional<LocalDate> getEarliestHistoryDate()
+	{
+		if (dailyHistory == null || dailyHistory.isEmpty())
+		{
+			return Optional.empty();
+		}
+
+		LocalDate earliest = null;
+		for (String date : dailyHistory.keySet())
+		{
+			LocalDate parsedDate = parseDate(date);
+			if (parsedDate != null && (earliest == null || parsedDate.isBefore(earliest)))
+			{
+				earliest = parsedDate;
+			}
+		}
+		return Optional.ofNullable(earliest);
+	}
+
+	private LocalDate getPhaseTrackingStartDate()
+	{
+		LocalDate parsedStartDate = parseDate(phaseStartDate);
+		if (parsedStartDate != null)
+		{
+			return parsedStartDate;
+		}
+		return getTrackingStartDate();
+	}
+
+	private LocalDate parseDate(String date)
+	{
+		if (date == null || date.isEmpty())
+		{
+			return null;
+		}
+
+		try
+		{
+			return LocalDate.parse(date);
+		}
+		catch (Exception e)
+		{
+			return null;
 		}
 	}
 }

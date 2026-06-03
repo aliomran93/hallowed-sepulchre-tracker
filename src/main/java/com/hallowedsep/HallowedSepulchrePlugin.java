@@ -21,6 +21,7 @@ import javax.inject.Inject;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -151,6 +152,7 @@ public class HallowedSepulchrePlugin extends Plugin
 			.build();
 
 		updatePluginTabVisibility();
+		clientThread.invokeLater(this::ensureCurrentGoalPhase);
 	}
 	
 	@Override
@@ -174,6 +176,7 @@ public class HallowedSepulchrePlugin extends Plugin
 				{
 					lastAgilityXp = client.getSkillExperience(Skill.AGILITY);
 				}
+				ensureCurrentGoalPhase();
 			});
 		}
 		else if (event.getGameState() == GameState.LOGIN_SCREEN || event.getGameState() == GameState.HOPPING)
@@ -206,6 +209,16 @@ public class HallowedSepulchrePlugin extends Plugin
 			{
 				currentRun.resume();
 			}
+		}
+
+		if ("targetLevel".equals(event.getKey()))
+		{
+			resetCurrentGoalPhase();
+		}
+
+		if (panel != null)
+		{
+			panel.updateStats();
 		}
 	}
 	
@@ -645,6 +658,41 @@ public class HallowedSepulchrePlugin extends Plugin
 			configManager.setConfiguration("hallowedsep", "persistent", json);
 		}
 	}
+
+	private void ensureCurrentGoalPhase()
+	{
+		if (persistentStats == null || client.getGameState() != GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		if (persistentStats.ensureGoalPhase(
+			client.getRealSkillLevel(Skill.AGILITY),
+			client.getSkillExperience(Skill.AGILITY),
+			config.targetLevel()))
+		{
+			savePersistentStats();
+		}
+	}
+
+	private void resetCurrentGoalPhase()
+	{
+		if (persistentStats == null)
+		{
+			return;
+		}
+
+		int currentLevel = 0;
+		int currentXp = 0;
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			currentLevel = client.getRealSkillLevel(Skill.AGILITY);
+			currentXp = client.getSkillExperience(Skill.AGILITY);
+		}
+
+		persistentStats.resetGoalPhase(LocalDate.now(), currentLevel, currentXp, config.targetLevel());
+		savePersistentStats();
+	}
 	
 	public void resetSession()
 	{
@@ -662,6 +710,14 @@ public class HallowedSepulchrePlugin extends Plugin
 		
 		// Reset all persistent stats
 		persistentStats = new PersistentStats();
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			persistentStats.resetGoalPhase(
+				LocalDate.now(),
+				client.getRealSkillLevel(Skill.AGILITY),
+				client.getSkillExperience(Skill.AGILITY),
+				config.targetLevel());
+		}
 		savePersistentStats();
 		
 		log.info("All stats have been reset");

@@ -11,6 +11,7 @@ import java.awt.*;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 public class HallowedSepulchrePanel extends PluginPanel
@@ -200,52 +201,39 @@ public class HallowedSepulchrePanel extends PluginPanel
 	
 	private JPanel createProgressCard()
 	{
-		JPanel card = createCard("Progress to 99", GREEN_SUCCESS);
+		int targetLevel = Math.max(1, Math.min(99, config.targetLevel()));
+		JPanel card = createCard("Progress to " + targetLevel, GREEN_SUCCESS);
 		JPanel content = (JPanel) card.getComponent(1);
 		
 		int level = plugin.getCurrentAgilityLevel();
-		int xpTo99 = plugin.getXpToLevel(99);
-		int runsTo99 = plugin.getRunsRemaining(99);
 		
 		// Level with colored indicator
-		Color levelColor = level >= 99 ? GOLD_ACCENT : (level >= 92 ? GREEN_SUCCESS : TEXT_PRIMARY);
+		Color levelColor = level >= targetLevel ? GOLD_ACCENT : TEXT_PRIMARY;
 		addStatRow(content, "Level", String.valueOf(level), TEXT_SECONDARY, levelColor);
 		
 		// Progress
-		if (level < 99)
+		if (level < targetLevel)
 		{
 			PersistentStats stats = plugin.getPersistentStats();
-			double avgRunsPerDay = stats != null ? stats.getAverageRunsPerDay() : 0;
-			
-			// XP to 92 if not there yet
-			if (level < 92)
+			double phaseRunsPerDay = stats != null ? stats.getPhaseAverageRunsPerDay() : 0;
+			if (stats != null)
 			{
-				int xpTo92 = plugin.getXpToLevel(92);
-				int runsTo92 = plugin.getRunsRemaining(92);
-				addStatRow(content, "XP to 92", formatNumber(xpTo92), TEXT_SECONDARY, ORANGE_WARN);
-				addStatRow(content, "Runs to 92", String.valueOf(runsTo92), TEXT_SECONDARY, BLUE_ACCENT);
-				
-				if (avgRunsPerDay > 0)
-				{
-					int daysTo92 = (int) Math.ceil(runsTo92 / avgRunsPerDay);
-					addStatRow(content, "Days to 92", String.valueOf(daysTo92), TEXT_SECONDARY, PURPLE_ACCENT);
-				}
+				addStatRow(content, "Phase Pace", formatRunsPerDay(phaseRunsPerDay), TEXT_SECONDARY, TEXT_PRIMARY);
+				addStatRow(content, "Missed Days", String.valueOf(stats.getPhaseMissedDays()), TEXT_SECONDARY, ORANGE_WARN);
 			}
 			
-			// Always show 99 stats
-			addStatRow(content, "XP to 99", formatNumber(xpTo99), TEXT_SECONDARY, ORANGE_WARN);
-			addStatRow(content, "Runs to 99", String.valueOf(runsTo99), TEXT_SECONDARY, GOLD_ACCENT);
-			
-			if (avgRunsPerDay > 0)
+			List<Integer> milestones = GoalProjection.parseMilestoneLevels(config.milestoneLevels(), level, targetLevel);
+			for (int milestone : milestones)
 			{
-				int daysTo99 = (int) Math.ceil(runsTo99 / avgRunsPerDay);
-				addStatRow(content, "Days to 99", String.valueOf(daysTo99), TEXT_SECONDARY, GOLD_ACCENT);
+				addGoalProjectionRows(content, milestone, BLUE_ACCENT, PURPLE_ACCENT, phaseRunsPerDay);
 			}
+
+			addGoalProjectionRows(content, targetLevel, GOLD_ACCENT, GOLD_ACCENT, phaseRunsPerDay);
 		}
 		else
 		{
 			content.add(Box.createVerticalStrut(10));
-			JLabel congrats = new JLabel("99 AGILITY!");
+			JLabel congrats = new JLabel(targetLevel + " AGILITY!");
 			congrats.setFont(HEADER_FONT);
 			congrats.setForeground(GOLD_ACCENT);
 			congrats.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -254,6 +242,20 @@ public class HallowedSepulchrePanel extends PluginPanel
 		}
 		
 		return card;
+	}
+
+	private void addGoalProjectionRows(JPanel content, int targetLevel, Color runsColor, Color daysColor, double phaseRunsPerDay)
+	{
+		int xpToLevel = plugin.getXpToLevel(targetLevel);
+		int runsToLevel = plugin.getRunsRemaining(targetLevel);
+		addStatRow(content, "XP to " + targetLevel, formatNumber(xpToLevel), TEXT_SECONDARY, ORANGE_WARN);
+		addStatRow(content, "Runs to " + targetLevel, String.valueOf(runsToLevel), TEXT_SECONDARY, runsColor);
+
+		int daysToLevel = GoalProjection.daysRemaining(runsToLevel, phaseRunsPerDay);
+		if (daysToLevel > 0)
+		{
+			addStatRow(content, "Days to " + targetLevel, String.valueOf(daysToLevel), TEXT_SECONDARY, daysColor);
+		}
 	}
 	
 	private JPanel createFloorCard(PersistentStats stats, HallowedSepulchreSession session)
@@ -609,6 +611,15 @@ public class HallowedSepulchrePanel extends PluginPanel
 	}
 	
 	// Utility methods
+	private String formatRunsPerDay(double runsPerDay)
+	{
+		if (runsPerDay <= 0)
+		{
+			return "--";
+		}
+		return String.format("%.1f/day", runsPerDay);
+	}
+
 	private String formatNumber(int num)
 	{
 		if (num >= 1000000)

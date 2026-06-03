@@ -113,7 +113,7 @@ public class HallowedSepulchrePlugin extends Plugin
 			.registerTypeAdapter(Duration.class, new DurationTypeAdapter())
 			.create();
 		
-		session = loadSession();
+		session = new HallowedSepulchreSession();
 		persistentStats = loadPersistentStats();
 		currentRun = null;
 		inSepulchre = false;
@@ -162,7 +162,6 @@ public class HallowedSepulchrePlugin extends Plugin
 		overlayManager.remove(infoBox);
 		clientToolbar.removeNavigation(navButton);
 		
-		saveSession();
 	}
 	
 	@Subscribe
@@ -592,7 +591,6 @@ public class HallowedSepulchrePlugin extends Plugin
 		log.info("  Today XP: {}", persistentStats.getToday().getTotalXp());
 		log.info("===================");
 		
-		saveSession();
 		savePersistentStats();
 		currentRun = null;
 	}
@@ -614,37 +612,6 @@ public class HallowedSepulchrePlugin extends Plugin
 			currentRun.setLootedGrandCoffin(true);
 			session.incrementGrandCoffinLooted();
 			log.debug("Looted Grand Hallowed Coffin");
-		}
-	}
-	
-	private HallowedSepulchreSession loadSession()
-	{
-		String json = configManager.getConfiguration("hallowedsep", "session");
-		if (json != null && !json.isEmpty())
-		{
-			try
-			{
-				HallowedSepulchreSession loaded = configuredGson.fromJson(json, HallowedSepulchreSession.class);
-				if (loaded != null)
-				{
-					loaded.initializeAfterLoad();
-					return loaded;
-				}
-			}
-			catch (Exception e)
-			{
-				log.warn("Failed to load session data", e);
-			}
-		}
-		return new HallowedSepulchreSession();
-	}
-	
-	private void saveSession()
-	{
-		if (session != null)
-		{
-			String json = configuredGson.toJson(session);
-			configManager.setConfiguration("hallowedsep", "session", json);
 		}
 	}
 	
@@ -682,7 +649,6 @@ public class HallowedSepulchrePlugin extends Plugin
 	public void resetSession()
 	{
 		session = new HallowedSepulchreSession();
-		saveSession();
 		if (panel != null)
 		{
 			panel.updateStats();
@@ -693,7 +659,6 @@ public class HallowedSepulchrePlugin extends Plugin
 	{
 		// Reset session
 		session = new HallowedSepulchreSession();
-		saveSession();
 		
 		// Reset all persistent stats
 		persistentStats = new PersistentStats();

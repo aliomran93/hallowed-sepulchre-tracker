@@ -1075,13 +1075,13 @@ public class HallowedSepulchrePlugin extends Plugin
 	}
 	
 	/**
-	 * Get live XP per hour including current run time and XP
+	 * Get today's live XP per hour including current run time and XP.
 	 */
 	public double getXpPerHour()
 	{
-		// Get completed session XP and time
-		int completedXp = session.getTotalXp();
-		long completedTimeMs = session.getTotalTimeMs();
+		DailyStats today = persistentStats != null ? persistentStats.getTodayIfPresent() : null;
+		int completedXp = today != null ? today.getTotalXp() : session.getTotalXp();
+		long completedTimeMs = today != null ? today.getTotalTimeMs() : session.getTotalTimeMs();
 		
 		// Add current run XP and time if in a run
 		int currentXp = 0;

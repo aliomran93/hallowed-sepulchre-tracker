@@ -29,7 +29,6 @@ import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -67,6 +66,7 @@ public class HallowedSepulchrePlugin extends Plugin
 	private static final int MAGICAL_OBELISK = 39558;
 
 	private static final Pattern FLOOR_TIME_PATTERN = Pattern.compile("Floor\\s+(\\d+)\\s+time:\\s*([0-9]+:[0-9]{1,2})");
+	private static final String HALLOWED_RING_FAIL_MESSAGE = "Your Hallowed ring activates, sending you back to the start of the trap!";
 	
 	@Inject
 	private Client client;
@@ -711,17 +711,8 @@ public class HallowedSepulchrePlugin extends Plugin
 			return false;
 		}
 
-		String lower = message.replaceAll("<[^>]*>", "").toLowerCase(Locale.ROOT);
-		return lower.contains("hallowed ring")
-			&& (lower.contains("activates")
-				|| lower.contains("sending you back")
-				|| lower.contains("start of the trap")
-				|| lower.contains("damage")
-				|| lower.contains("prevent")
-				|| lower.contains("protect")
-				|| lower.contains("save")
-				|| lower.contains("teleport")
-				|| lower.contains("nick of time"));
+		String cleanMessage = message.replaceAll("<[^>]*>", "").trim();
+		return HALLOWED_RING_FAIL_MESSAGE.equals(cleanMessage);
 	}
 	
 	private PersistentStats loadPersistentStats()

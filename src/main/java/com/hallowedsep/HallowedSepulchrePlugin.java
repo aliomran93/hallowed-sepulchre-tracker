@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
+import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -19,6 +20,12 @@ import net.runelite.client.util.ImageUtil;
 
 import javax.inject.Inject;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,6 +43,10 @@ public class HallowedSepulchrePlugin extends Plugin
 {
 	// Hallowed Sepulchre Region IDs
 	private static final int LOBBY_REGION = 9565;
+	private static final String CONFIG_GROUP = "hallowedsep";
+	private static final String PERSISTENT_CONFIG_KEY = "persistent";
+	private static final String BACKUP_FILE_PREFIX = "hallowedsep-persistent";
+	private static final String BACKUP_FILE_SUFFIX = ".json";
 	
 	// Floor regions (used to detect if player is still in Sepulchre area)
 	// These are checked via getMapRegions() which returns all loaded regions
@@ -620,17 +631,18 @@ public class HallowedSepulchrePlugin extends Plugin
 		
 		// Add to persistent stats (saved across sessions)
 		persistentStats.recordRun(currentRun);
+		DailyStats today = persistentStats.getTodayIfPresent();
 		
 		log.info("=== RUN RECORDED ===");
 		log.info("  Floors reached: {}", currentRun.getHighestFloor());
 		log.info("  XP gained: {}", currentRun.getTotalXp());
 		log.info("  Duration: {}", formatDuration(currentRun.getDuration()));
 		log.info("  Session runs: {}", session.getTotalRuns());
-		log.info("  Today runs: {}", persistentStats.getToday().getRuns());
-		log.info("  Today XP: {}", persistentStats.getToday().getTotalXp());
+		log.info("  Today runs: {}", today != null ? today.getRuns() : 0);
+		log.info("  Today XP: {}", today != null ? today.getTotalXp() : 0);
 		log.info("===================");
 		
-		savePersistentStats();
+		savePersistentStats(true);
 		currentRun = null;
 	}
 	
@@ -714,7 +726,19 @@ public class HallowedSepulchrePlugin extends Plugin
 	
 	private PersistentStats loadPersistentStats()
 	{
-		String json = configManager.getConfiguration("hallowedsep", "persistent");
+		String json = configManager.getConfiguration(CONFIG_GROUP, PERSISTENT_CONFIG_KEY);
+		PersistentStats configuredStats = deserializePersistentStats(json, "RuneLite config");
+		PersistentStats backupStats = deserializePersistentStats(readPersistentStatsBackup(), "backup file");
+		PersistentStats selectedStats = selectMostCompleteStats(configuredStats, backupStats);
+		if (selectedStats != null)
+		{
+			return selectedStats;
+		}
+		return new PersistentStats();
+	}
+
+	private PersistentStats deserializePersistentStats(String json, String source)
+	{
 		if (json != null && !json.isEmpty())
 		{
 			try
@@ -728,19 +752,150 @@ public class HallowedSepulchrePlugin extends Plugin
 			}
 			catch (Exception e)
 			{
-				log.warn("Failed to load persistent stats", e);
+				log.warn("Failed to load persistent stats from {}", source, e);
 			}
 		}
-		return new PersistentStats();
+		return null;
+	}
+
+	private PersistentStats selectMostCompleteStats(PersistentStats configuredStats, PersistentStats backupStats)
+	{
+		if (configuredStats == null)
+		{
+			return backupStats;
+		}
+		if (backupStats == null)
+		{
+			return configuredStats;
+		}
+		if (comparePersistentStats(backupStats, configuredStats) > 0)
+		{
+			log.info("Loaded Hallowed Sepulchre stats from backup because it has newer run totals");
+			return backupStats;
+		}
+		return configuredStats;
+	}
+
+	private int comparePersistentStats(PersistentStats left, PersistentStats right)
+	{
+		int compared = Integer.compare(left.getAllTimeRuns(), right.getAllTimeRuns());
+		if (compared != 0)
+		{
+			return compared;
+		}
+
+		compared = Integer.compare(left.getAllTimeXp(), right.getAllTimeXp());
+		if (compared != 0)
+		{
+			return compared;
+		}
+
+		compared = Long.compare(left.getAllTimeMs(), right.getAllTimeMs());
+		if (compared != 0)
+		{
+			return compared;
+		}
+
+		return Integer.compare(getTodayRuns(left), getTodayRuns(right));
+	}
+
+	private int getTodayRuns(PersistentStats stats)
+	{
+		if (stats == null)
+		{
+			return 0;
+		}
+
+		DailyStats today = stats.getTodayIfPresent();
+		return today != null ? today.getRuns() : 0;
 	}
 	
 	private void savePersistentStats()
 	{
+		savePersistentStats(false);
+	}
+
+	private void savePersistentStats(boolean flushConfig)
+	{
 		if (persistentStats != null)
 		{
 			String json = configuredGson.toJson(persistentStats);
-			configManager.setConfiguration("hallowedsep", "persistent", json);
+			writePersistentStatsBackup(json);
+			configManager.setConfiguration(CONFIG_GROUP, PERSISTENT_CONFIG_KEY, json);
+			if (flushConfig)
+			{
+				try
+				{
+					configManager.sendConfig();
+				}
+				catch (Exception e)
+				{
+					log.warn("Failed to flush persistent stats to RuneLite config", e);
+				}
+			}
 		}
+	}
+
+	private String readPersistentStatsBackup()
+	{
+		Path path = getPersistentStatsBackupPath();
+		if (!Files.isRegularFile(path))
+		{
+			return null;
+		}
+
+		try
+		{
+			return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+		}
+		catch (IOException e)
+		{
+			log.warn("Failed to read persistent stats backup from {}", path, e);
+			return null;
+		}
+	}
+
+	private void writePersistentStatsBackup(String json)
+	{
+		Path path = getPersistentStatsBackupPath();
+		Path tempPath = path.resolveSibling(path.getFileName() + ".tmp");
+		try
+		{
+			Files.createDirectories(path.getParent());
+			Files.write(tempPath, json.getBytes(StandardCharsets.UTF_8));
+			try
+			{
+				Files.move(tempPath, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			}
+			catch (AtomicMoveNotSupportedException e)
+			{
+				Files.move(tempPath, path, StandardCopyOption.REPLACE_EXISTING);
+			}
+		}
+		catch (IOException e)
+		{
+			log.warn("Failed to write persistent stats backup to {}", path, e);
+		}
+	}
+
+	private Path getPersistentStatsBackupPath()
+	{
+		long profileId = -1;
+		try
+		{
+			if (configManager.getProfile() != null)
+			{
+				profileId = configManager.getProfile().getId();
+			}
+		}
+		catch (Exception e)
+		{
+			log.debug("Failed to resolve RuneLite profile id for Hallowed Sepulchre backup", e);
+		}
+
+		String profileSuffix = profileId >= 0 ? String.valueOf(profileId) : "default";
+		return RuneLite.RUNELITE_DIR.toPath()
+			.resolve(BACKUP_FILE_PREFIX + "-" + profileSuffix + BACKUP_FILE_SUFFIX);
 	}
 
 	private void ensureCurrentGoalPhase()

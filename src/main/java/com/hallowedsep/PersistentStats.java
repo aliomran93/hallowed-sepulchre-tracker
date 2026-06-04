@@ -54,6 +54,25 @@ public class PersistentStats
 	
 	public DailyStats getToday()
 	{
+		return getTodayIfPresent();
+	}
+
+	public DailyStats getTodayIfPresent()
+	{
+		if (dailyHistory == null)
+		{
+			return null;
+		}
+		String today = LocalDate.now().toString();
+		return dailyHistory.get(today);
+	}
+
+	private DailyStats getOrCreateToday()
+	{
+		if (dailyHistory == null)
+		{
+			dailyHistory = new LinkedHashMap<>();
+		}
 		String today = LocalDate.now().toString();
 		return dailyHistory.computeIfAbsent(today, DailyStats::new);
 	}
@@ -138,7 +157,7 @@ public class PersistentStats
 		}
 		
 		// Update daily stats
-		DailyStats today = getToday();
+		DailyStats today = getOrCreateToday();
 		today.addRun(xp, timeMs, fails);
 		today.setChestsLooted(today.getChestsLooted() + run.getTotalChestsLooted());
 		if (run.isLootedGrandCoffin())

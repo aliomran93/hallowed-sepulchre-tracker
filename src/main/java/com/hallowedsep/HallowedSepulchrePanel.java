@@ -151,7 +151,7 @@ public class HallowedSepulchrePanel extends PluginPanel
 		JPanel card = createCard("Today", BLUE_ACCENT);
 		JPanel content = (JPanel) card.getComponent(1);
 		
-		DailyStats today = stats != null ? stats.getToday() : null;
+		DailyStats today = stats != null ? stats.getTodayIfPresent() : null;
 		
 		if (today == null || today.getRuns() == 0)
 		{

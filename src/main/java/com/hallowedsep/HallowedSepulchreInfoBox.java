@@ -85,7 +85,7 @@ public class HallowedSepulchreInfoBox extends OverlayPanel
 			.build());
 		
 		// Get today's stats
-		DailyStats today = stats.getToday();
+		DailyStats today = stats.getTodayIfPresent();
 		int todayRuns = today != null ? today.getRuns() : 0;
 		int todayXp = today != null ? today.getTotalXp() : 0;
 		double todayHours = today != null ? today.getHoursPlayed() : 0;

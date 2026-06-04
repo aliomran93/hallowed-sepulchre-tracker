@@ -162,6 +162,8 @@ public class HallowedSepulchrePanel extends PluginPanel
 			addStatRow(content, "Runs", String.valueOf(today.getRuns()), TEXT_SECONDARY, TEXT_PRIMARY);
 			addStatRow(content, "XP", formatNumber(today.getTotalXp()), TEXT_SECONDARY, GREEN_SUCCESS);
 			addStatRow(content, "Time", formatHoursMinutes(today.getHoursPlayed()), TEXT_SECONDARY, BLUE_ACCENT);
+			addStatRow(content, "Fails", String.valueOf(today.getTotalFails()), TEXT_SECONDARY, ORANGE_WARN);
+			addStatRow(content, "Fails/Run", formatAverage(today.getAverageFailsPerRun()), TEXT_SECONDARY, ORANGE_WARN);
 			
 			// Live XP/hr including current run
 			double xpHr = plugin.getXpPerHour();
@@ -191,8 +193,10 @@ public class HallowedSepulchrePanel extends PluginPanel
 			addStatRow(content, "Runs", String.valueOf(stats.getAllTimeRuns()), TEXT_SECONDARY, TEXT_PRIMARY);
 			addStatRow(content, "XP", formatNumber(stats.getAllTimeXp()), TEXT_SECONDARY, GREEN_SUCCESS);
 			addStatRow(content, "Time", formatHoursMinutes(stats.getAllTimeHours()), TEXT_SECONDARY, BLUE_ACCENT);
-			addStatRow(content, "Days", String.valueOf(stats.getDaysTracked()), TEXT_SECONDARY, PURPLE_ACCENT);
-			addStatRow(content, "Runs/Day", String.format("%.1f", stats.getAverageRunsPerDay()), TEXT_SECONDARY, TEXT_PRIMARY);
+			addStatRow(content, "Fails", String.valueOf(stats.getAllTimeFails()), TEXT_SECONDARY, ORANGE_WARN);
+			addStatRow(content, "Avg Fails", formatAverage(stats.getAllTimeAvgFailsPerRun()) + "/run", TEXT_SECONDARY, ORANGE_WARN);
+			addStatRow(content, "Tracked", stats.getDaysTracked() + " days", TEXT_SECONDARY, PURPLE_ACCENT);
+			addStatRow(content, "Avg Runs", formatRunsPerDay(stats.getAverageRunsPerDay()), TEXT_SECONDARY, TEXT_PRIMARY);
 			addStatRow(content, "XP/hr", formatNumber((int) stats.getAllTimeXpPerHour()), TEXT_SECONDARY, getXpHrColor(stats.getAllTimeXpPerHour()));
 		}
 		
@@ -202,7 +206,7 @@ public class HallowedSepulchrePanel extends PluginPanel
 	private JPanel createProgressCard()
 	{
 		int targetLevel = Math.max(1, Math.min(99, config.targetLevel()));
-		JPanel card = createCard("Progress to " + targetLevel, GREEN_SUCCESS);
+		JPanel card = createCard("Goal to " + targetLevel, GREEN_SUCCESS);
 		JPanel content = (JPanel) card.getComponent(1);
 		
 		int level = plugin.getCurrentAgilityLevel();
@@ -218,8 +222,9 @@ public class HallowedSepulchrePanel extends PluginPanel
 			double phaseRunsPerDay = stats != null ? stats.getPhaseAverageRunsPerDay() : 0;
 			if (stats != null)
 			{
-				addStatRow(content, "Phase Pace", formatRunsPerDay(phaseRunsPerDay), TEXT_SECONDARY, TEXT_PRIMARY);
-				addStatRow(content, "Missed Days", String.valueOf(stats.getPhaseMissedDays()), TEXT_SECONDARY, ORANGE_WARN);
+				addStatRow(content, "Avg Runs", formatRunsPerDay(phaseRunsPerDay), TEXT_SECONDARY, TEXT_PRIMARY);
+				addStatRow(content, "Missed", stats.getPhaseMissedDays() + " days", TEXT_SECONDARY, ORANGE_WARN);
+				addStatRow(content, "Avg Fails", formatAverage(stats.getPhaseAverageFailsPerRun()) + "/run", TEXT_SECONDARY, ORANGE_WARN);
 			}
 			
 			List<Integer> milestones = GoalProjection.parseMilestoneLevels(config.milestoneLevels(), level, targetLevel);
@@ -618,6 +623,15 @@ public class HallowedSepulchrePanel extends PluginPanel
 			return "--";
 		}
 		return String.format("%.1f/day", runsPerDay);
+	}
+
+	private String formatAverage(double value)
+	{
+		if (value > 0 && value < 0.1)
+		{
+			return "<0.1";
+		}
+		return String.format("%.1f", value);
 	}
 
 	private String formatNumber(int num)

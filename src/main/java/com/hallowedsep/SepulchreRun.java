@@ -17,6 +17,7 @@ public class SepulchreRun
 	private int startXp;
 	private int totalXp;
 	private int highestFloor;
+	private int fails;
 	private boolean completed;
 	private boolean lootedGrandCoffin;
 	
@@ -80,6 +81,11 @@ public class SepulchreRun
 	public void incrementChestsLooted(int floor)
 	{
 		chestsLootedPerFloor.merge(floor, 1, Integer::sum);
+	}
+
+	public void incrementFails()
+	{
+		fails++;
 	}
 	
 	public int getChestsLooted(int floor)

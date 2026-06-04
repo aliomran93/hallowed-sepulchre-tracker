@@ -134,15 +134,15 @@ public interface HallowedSepulchreConfig extends Config
 	}
 	
 	@ConfigItem(
-		keyName = "trackDeaths",
-		name = "Track Deaths",
-		description = "Track deaths per floor (coming soon)",
+		keyName = "trackFails",
+		name = "Track Fails",
+		description = "Track obstacle fails from damage or Hallowed ring saves",
 		section = trackingSection,
 		position = 1
 	)
-	default boolean trackDeaths()
+	default boolean trackFails()
 	{
-		return false;
+		return true;
 	}
 	
 	@ConfigItem(

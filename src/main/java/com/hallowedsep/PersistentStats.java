@@ -12,6 +12,7 @@ public class PersistentStats
 	// All-time stats
 	private int allTimeRuns;
 	private int allTimeXp;
+	private int allTimeFails;
 	private long allTimeMs;
 	private Map<Integer, Integer> allTimeFloorCompletions = new HashMap<>();
 	private int allTimeChestsLooted;
@@ -36,6 +37,7 @@ public class PersistentStats
 	private int phaseTargetLevel = 99;
 	private int phaseRuns;
 	private int phaseXp;
+	private int phaseFails;
 	private long phaseMs;
 	
 	public PersistentStats()
@@ -61,16 +63,19 @@ public class PersistentStats
 		if (run == null) return;
 		
 		int xp = run.getTotalXp();
+		int fails = run.getFails();
 		long timeMs = run.getDuration().toMillis();
 		
 		// Update all-time stats
 		allTimeRuns++;
 		allTimeXp += xp;
+		allTimeFails += fails;
 		allTimeMs += timeMs;
 
 		// Update current goal phase stats
 		phaseRuns++;
 		phaseXp += xp;
+		phaseFails += fails;
 		phaseMs += timeMs;
 		
 		// Update best times only when the floor time came from the game's chat message
@@ -134,7 +139,7 @@ public class PersistentStats
 		
 		// Update daily stats
 		DailyStats today = getToday();
-		today.addRun(xp, timeMs);
+		today.addRun(xp, timeMs, fails);
 		today.setChestsLooted(today.getChestsLooted() + run.getTotalChestsLooted());
 		if (run.isLootedGrandCoffin())
 		{
@@ -166,6 +171,12 @@ public class PersistentStats
 	{
 		if (allTimeRuns == 0) return 0;
 		return (double) allTimeXp / allTimeRuns;
+	}
+
+	public double getAllTimeAvgFailsPerRun()
+	{
+		if (allTimeRuns == 0) return 0;
+		return (double) allTimeFails / allTimeRuns;
 	}
 	
 	public int getAllTimeFloorCompletions(int floor)
@@ -252,6 +263,7 @@ public class PersistentStats
 		phaseTargetLevel = targetLevel;
 		phaseRuns = 0;
 		phaseXp = 0;
+		phaseFails = 0;
 		phaseMs = 0;
 	}
 
@@ -319,6 +331,12 @@ public class PersistentStats
 		return (phaseMs / 3_600_000.0) / getPhaseDaysTracked();
 	}
 
+	public double getPhaseAverageFailsPerRun()
+	{
+		if (phaseRuns == 0) return 0;
+		return (double) phaseFails / phaseRuns;
+	}
+
 	/**
 	 * Initialize maps after deserialization
 	 */
@@ -361,6 +379,7 @@ public class PersistentStats
 			{
 				phaseRuns = allTimeRuns;
 				phaseXp = allTimeXp;
+				phaseFails = allTimeFails;
 				phaseMs = allTimeMs;
 			}
 		}

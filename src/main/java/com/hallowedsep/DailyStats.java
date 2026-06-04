@@ -12,6 +12,7 @@ public class DailyStats
 	private String date; // YYYY-MM-DD format
 	private int runs;
 	private int totalXp;
+	private int totalFails;
 	private long totalTimeMs;
 	private Map<Integer, Integer> floorCompletions = new HashMap<>();
 	private int chestsLooted;
@@ -41,6 +42,12 @@ public class DailyStats
 		this.totalXp += xp;
 		this.totalTimeMs += timeMs;
 	}
+
+	public void addRun(int xp, long timeMs, int fails)
+	{
+		addRun(xp, timeMs);
+		this.totalFails += fails;
+	}
 	
 	public void incrementFloor(int floor)
 	{
@@ -67,5 +74,11 @@ public class DailyStats
 	{
 		if (runs == 0) return 0;
 		return (double) totalXp / runs;
+	}
+
+	public double getAverageFailsPerRun()
+	{
+		if (runs == 0) return 0;
+		return (double) totalFails / runs;
 	}
 }

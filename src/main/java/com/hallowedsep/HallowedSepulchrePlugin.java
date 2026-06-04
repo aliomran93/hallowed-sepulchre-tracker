@@ -22,6 +22,7 @@ import java.awt.image.BufferedImage;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -102,6 +103,7 @@ public class HallowedSepulchrePlugin extends Plugin
 	private int lastAgilityXp;
 	private int lastRegionId;
 	private boolean hidePluginTabOutsideSepulchre;
+	private int lastFailGameCycle;
 	
 	@Override
 	protected void startUp() throws Exception
@@ -122,6 +124,7 @@ public class HallowedSepulchrePlugin extends Plugin
 		lastAgilityXp = -1;
 		lastRegionId = -1;
 		hidePluginTabOutsideSepulchre = config.hidePluginTabOutsideSepulchre();
+		lastFailGameCycle = -1;
 		
 		overlayManager.add(overlay);
 		overlayManager.add(infoBox);
@@ -269,6 +272,23 @@ public class HallowedSepulchrePlugin extends Plugin
 	}
 	
 	@Subscribe
+	public void onHitsplatApplied(HitsplatApplied event)
+	{
+		if (!shouldTrackFails() || event.getActor() != client.getLocalPlayer())
+		{
+			return;
+		}
+
+		Hitsplat hitsplat = event.getHitsplat();
+		if (hitsplat == null || hitsplat.getAmount() <= 0 || !isDamageHitsplat(hitsplat.getHitsplatType()))
+		{
+			return;
+		}
+
+		recordFail("damage");
+	}
+
+	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{
 		if (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM)
@@ -277,6 +297,11 @@ public class HallowedSepulchrePlugin extends Plugin
 		}
 		
 		String message = event.getMessage();
+
+		if (shouldTrackFails() && isHallowedRingFailMessage(message))
+		{
+			recordFail("hallowed ring");
+		}
 		
 		// Detect entering Floor 1
 		if (message.contains("You venture down into the Hallowed Sepulchre") && !message.contains("further"))
@@ -526,6 +551,7 @@ public class HallowedSepulchrePlugin extends Plugin
 		currentRun = new SepulchreRun();
 		currentRun.setStartTime(Instant.now());
 		currentRun.setStartXp(client.getSkillExperience(Skill.AGILITY));
+		lastFailGameCycle = -1;
 		floorStartTime = Instant.now();
 		
 		log.debug("Started new Sepulchre run");
@@ -626,6 +652,64 @@ public class HallowedSepulchrePlugin extends Plugin
 			session.incrementGrandCoffinLooted();
 			log.debug("Looted Grand Hallowed Coffin");
 		}
+	}
+
+	private boolean shouldTrackFails()
+	{
+		return config.trackFails() && inSepulchre && currentRun != null && currentFloor > 0;
+	}
+
+	private void recordFail(String source)
+	{
+		int gameCycle = client.getGameCycle();
+		if (gameCycle == lastFailGameCycle)
+		{
+			return;
+		}
+
+		lastFailGameCycle = gameCycle;
+		currentRun.incrementFails();
+		log.debug("Recorded Sepulchre fail from {} on floor {} (run total: {})", source, currentFloor, currentRun.getFails());
+	}
+
+	private boolean isDamageHitsplat(int hitsplatType)
+	{
+		switch (hitsplatType)
+		{
+			case HitsplatID.DAMAGE_ME:
+			case HitsplatID.DAMAGE_MAX_ME:
+			case HitsplatID.DAMAGE_ME_CYAN:
+			case HitsplatID.DAMAGE_MAX_ME_CYAN:
+			case HitsplatID.DAMAGE_ME_ORANGE:
+			case HitsplatID.DAMAGE_MAX_ME_ORANGE:
+			case HitsplatID.DAMAGE_ME_YELLOW:
+			case HitsplatID.DAMAGE_MAX_ME_YELLOW:
+			case HitsplatID.DAMAGE_ME_WHITE:
+			case HitsplatID.DAMAGE_MAX_ME_WHITE:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	private boolean isHallowedRingFailMessage(String message)
+	{
+		if (message == null)
+		{
+			return false;
+		}
+
+		String lower = message.replaceAll("<[^>]*>", "").toLowerCase(Locale.ROOT);
+		return lower.contains("hallowed ring")
+			&& (lower.contains("activates")
+				|| lower.contains("sending you back")
+				|| lower.contains("start of the trap")
+				|| lower.contains("damage")
+				|| lower.contains("prevent")
+				|| lower.contains("protect")
+				|| lower.contains("save")
+				|| lower.contains("teleport")
+				|| lower.contains("nick of time"));
 	}
 	
 	private PersistentStats loadPersistentStats()

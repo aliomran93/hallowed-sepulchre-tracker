@@ -15,6 +15,7 @@ public class HallowedSepulchreSession
 	private Instant sessionStartTime;
 	private int totalRuns;
 	private int totalXp;
+	private int totalFails;
 	private long totalTimeMs;
 	
 	// Floor completion counts
@@ -53,6 +54,7 @@ public class HallowedSepulchreSession
 	{
 		totalRuns++;
 		totalXp += run.getTotalXp();
+		totalFails += run.getFails();
 		totalTimeMs += run.getDuration().toMillis();
 		
 		// Update best run time if this was a full run
@@ -82,6 +84,7 @@ public class HallowedSepulchreSession
 		// Add to recent runs (keep last 50)
 		RunSummary summary = new RunSummary();
 		summary.setXp(run.getTotalXp());
+		summary.setFails(run.getFails());
 		summary.setDurationMs(run.getDuration().toMillis());
 		summary.setHighestFloor(run.getHighestFloor());
 		summary.setCompleted(run.isCompleted());
@@ -175,6 +178,15 @@ public class HallowedSepulchreSession
 		}
 		return (double) totalTimeMs / totalRuns;
 	}
+
+	public double getAverageFailsPerRun()
+	{
+		if (totalRuns == 0)
+		{
+			return 0;
+		}
+		return (double) totalFails / totalRuns;
+	}
 	
 	public double getXpPerHour()
 	{
@@ -252,6 +264,7 @@ public class HallowedSepulchreSession
 	public static class RunSummary
 	{
 		private int xp;
+		private int fails;
 		private long durationMs;
 		private int highestFloor;
 		private boolean completed;

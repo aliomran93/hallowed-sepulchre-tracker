@@ -172,6 +172,15 @@ public class HallowedSepulchreOverlay extends OverlayPanel
 					.build());
 			}
 		}
+
+		if (config.trackFails() && currentRun.getFails() > 0)
+		{
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Fails:")
+				.right(String.valueOf(currentRun.getFails()))
+				.rightColor(new Color(255, 165, 80))
+				.build());
+		}
 		
 		// Current floor
 		if (!runIdle && currentFloor > 0)

@@ -228,6 +228,32 @@ public class HallowedSepulchreSession
 		
 		return sum / limit;
 	}
+
+	public int getRecentAverageXpForHighestFloor(int highestFloor, int count)
+	{
+		if (recentRuns.isEmpty() || highestFloor <= 0 || count <= 0)
+		{
+			return 0;
+		}
+
+		int sum = 0;
+		int matched = 0;
+		for (int i = recentRuns.size() - 1; i >= 0 && matched < count; i--)
+		{
+			RunSummary run = recentRuns.get(i);
+			if (run.getHighestFloor() == highestFloor)
+			{
+				sum += run.getXp();
+				matched++;
+			}
+		}
+
+		if (matched == 0)
+		{
+			return 0;
+		}
+		return sum / matched;
+	}
 	
 	/**
 	 * Initialize maps after deserialization

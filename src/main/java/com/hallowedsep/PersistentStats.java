@@ -35,6 +35,7 @@ public class PersistentStats
 	private int phaseStartLevel;
 	private int phaseStartXp;
 	private int phaseTargetLevel = 99;
+	private int phaseHighestFloor;
 	private int phaseRuns;
 	private int phaseXp;
 	private int phaseFails;
@@ -80,6 +81,13 @@ public class PersistentStats
 	public void recordRun(SepulchreRun run)
 	{
 		if (run == null) return;
+
+		int runHighestFloor = normalizeFloor(run.getHighestFloor());
+		if (runHighestFloor > phaseHighestFloor)
+		{
+			resetGoalPhase(LocalDate.now(), phaseStartLevel, phaseStartXp, phaseTargetLevel);
+			phaseHighestFloor = runHighestFloor;
+		}
 		
 		int xp = run.getTotalXp();
 		int fails = run.getFails();
@@ -280,6 +288,7 @@ public class PersistentStats
 		phaseStartLevel = currentLevel;
 		phaseStartXp = currentXp;
 		phaseTargetLevel = targetLevel;
+		phaseHighestFloor = 0;
 		phaseRuns = 0;
 		phaseXp = 0;
 		phaseFails = 0;
@@ -356,6 +365,21 @@ public class PersistentStats
 		return (double) phaseFails / phaseRuns;
 	}
 
+	public double getPhaseAverageXpPerRun()
+	{
+		if (phaseRuns == 0) return 0;
+		return (double) phaseXp / phaseRuns;
+	}
+
+	public int getProjectionFloor()
+	{
+		if (phaseHighestFloor > 0)
+		{
+			return phaseHighestFloor;
+		}
+		return getHighestCompletedFloor();
+	}
+
 	/**
 	 * Initialize maps after deserialization
 	 */
@@ -402,6 +426,28 @@ public class PersistentStats
 				phaseMs = allTimeMs;
 			}
 		}
+		if (phaseHighestFloor <= 0)
+		{
+			phaseHighestFloor = getHighestCompletedFloor();
+		}
+	}
+
+	private int getHighestCompletedFloor()
+	{
+		if (allTimeFloorCompletions == null || allTimeFloorCompletions.isEmpty())
+		{
+			return 0;
+		}
+
+		int highestFloor = 0;
+		for (Map.Entry<Integer, Integer> entry : allTimeFloorCompletions.entrySet())
+		{
+			if (entry.getValue() != null && entry.getValue() > 0)
+			{
+				highestFloor = Math.max(highestFloor, normalizeFloor(entry.getKey()));
+			}
+		}
+		return highestFloor;
 	}
 
 	private LocalDate getTrackingStartDate()
@@ -441,6 +487,15 @@ public class PersistentStats
 			return parsedStartDate;
 		}
 		return getTrackingStartDate();
+	}
+
+	private static int normalizeFloor(int floor)
+	{
+		if (floor < 1 || floor > 5)
+		{
+			return 0;
+		}
+		return floor;
 	}
 
 	private LocalDate parseDate(String date)

@@ -559,6 +559,7 @@ public class HallowedSepulchrePlugin extends Plugin
 	
 	private void startRun()
 	{
+		ensureCurrentGoalPhase();
 		currentRun = new SepulchreRun();
 		currentRun.setStartTime(Instant.now());
 		currentRun.setStartXp(client.getSkillExperience(Skill.AGILITY));
@@ -1043,26 +1044,89 @@ public class HallowedSepulchrePlugin extends Plugin
 	public int getRunsRemaining(int targetLevel)
 	{
 		int xpRemaining = getXpToLevel(targetLevel);
-		
-		// Use actual average XP per run from all-time stats first, then session, then config
-		double xpPerRun = 0;
-		
-		if (persistentStats != null && persistentStats.getAllTimeRuns() > 0)
+		if (xpRemaining <= 0)
 		{
-			xpPerRun = persistentStats.getAllTimeAvgXpPerRun();
+			return 0;
 		}
-		else if (session.getTotalRuns() > 0)
-		{
-			xpPerRun = session.getAverageXpPerRun();
-		}
-		
+
+		double xpPerRun = getProjectionXpPerRun();
 		if (xpPerRun <= 0)
 		{
-			// Fallback to config estimate
-			xpPerRun = config.estimatedXpPerRun();
+			return 0;
 		}
-		
+
 		return (int) Math.ceil(xpRemaining / xpPerRun);
+	}
+
+	private double getProjectionXpPerRun()
+	{
+		if (persistentStats != null)
+		{
+			double phaseAverage = persistentStats.getPhaseAverageXpPerRun();
+			if (phaseAverage > 0)
+			{
+				return phaseAverage;
+			}
+		}
+
+		int projectionFloor = getProjectionFloor();
+		int recentFloorAverage = session.getRecentAverageXpForHighestFloor(projectionFloor, 10);
+		if (recentFloorAverage > 0)
+		{
+			return recentFloorAverage;
+		}
+
+		int configuredFloorEstimate = getConfiguredXpForFloor(projectionFloor);
+		if (configuredFloorEstimate > 0)
+		{
+			return configuredFloorEstimate;
+		}
+
+		if (persistentStats != null && persistentStats.getAllTimeRuns() > 0)
+		{
+			return persistentStats.getAllTimeAvgXpPerRun();
+		}
+		if (session.getTotalRuns() > 0)
+		{
+			return session.getAverageXpPerRun();
+		}
+
+		return config.estimatedXpPerRun();
+	}
+
+	private int getProjectionFloor()
+	{
+		int projectionFloor = 0;
+		if (persistentStats != null)
+		{
+			projectionFloor = persistentStats.getProjectionFloor();
+		}
+		if (currentRun != null && currentFloor > 0)
+		{
+			projectionFloor = Math.max(projectionFloor, currentFloor);
+		}
+		return projectionFloor;
+	}
+
+	private int getConfiguredXpForFloor(int floor)
+	{
+		switch (floor)
+		{
+			case 5:
+				return config.floor1Xp() + config.floor2Xp() + config.floor3Xp()
+					+ config.floor4Xp() + config.floor5Xp() + config.floor5LootXp();
+			case 4:
+				return config.floor1Xp() + config.floor2Xp() + config.floor3Xp()
+					+ config.floor4Xp() + config.floor4LootXp();
+			case 3:
+				return config.floor1Xp() + config.floor2Xp() + config.floor3Xp();
+			case 2:
+				return config.floor1Xp() + config.floor2Xp();
+			case 1:
+				return config.floor1Xp();
+			default:
+				return config.estimatedXpPerRun();
+		}
 	}
 	
 	/**
